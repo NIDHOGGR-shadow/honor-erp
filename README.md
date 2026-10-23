@@ -2,6 +2,10 @@
 
 Inventory control with a connected staff workspace and customer storefront. One backend owns stock, reservations, orders and payment state.
 
+Public product preview: https://honor-inventory-preview.zippyduck7.chatgpt.site
+
+The public preview uses fictional records stored in each visitor's browser. It does not provide shared stock, customer accounts or payment collection. Build this static preview with `VITE_PUBLIC_PREVIEW=true npm run build`. Leave that flag false for the connected application. See [the product roadmap](docs/PRODUCT_ROADMAP.md) for the launch sequence.
+
 This implementation adapts Samuel's `srdataml-droid/Store-` frontend at commit `87f907442c428533d668858c815bdf33f23553c0`. No BIGGS code or private business records were reused.
 
 ## What is built

@@ -1,6 +1,8 @@
 # Honor delivery status
 
-Date: 23 October 2026. This records local source implementation and verification. No production resources, live credentials or merchant payments have been provisioned.
+Date: 23 October 2026. This records implementation, verification and the public product preview. No connected production backend, live identity/email setup or merchant payments have been provisioned.
+
+Public preview published on 23 October 2026: https://honor-inventory-preview.zippyduck7.chatgpt.site. This is a static sample-data demonstration, not the connected business system. Its frontend was built from GitHub commit `5ead90dc9e52816838a550492619a61d6a3d31db`; the Sites source commit is `5d66154203097e4f8eac11d3f72e7b152c0ec757`. Browser review confirmed the dashboard, preview notice and inventory navigation. Vercel project creation returned a permission error; Render could not fetch the private Honor repository. Neither provider has an Honor service configured by this release.
 
 ## Built
 
@@ -19,7 +21,7 @@ The root Docker image can serve the dashboard and API together; a development Co
 - Frontend: TypeScript, 13 regression/render tests and Vite production build passed. Route splitting keeps the legacy demonstration out of the initial connected-workspace bundle.
 - Next.js: production build and its TypeScript check passed.
 - Backend: 29 integration cases passed against embedded PostgreSQL. They cover receipt replay/rollback, strict quantities, private catalogue fields, reservations, paid-only fulfilment, serial return/reconciliation, transfer transit, expiry/late payment, tenant/location denial, suspension/sign-out, password changes, invitations, CSRF origin checks, immutable history and signed duplicate payment events.
-- Native concurrent last-unit reservation: configured as a separate CI case against PostgreSQL 17; skipped by the local embedded runner because it serializes database connections. Do not claim native concurrency has passed until the remote CI result is available.
+- Native PostgreSQL 17 CI: all 30 backend tests passed, including concurrent last-unit reservation. All 13 frontend tests, TypeScript, Vite build and Next.js build also passed. The current frontend preview commit passed [CI run 39930030348](https://github.com/NIDHOGGR-shadow/honor-erp/actions/runs/39930030348). The local embedded runner still intentionally skips the native-concurrency test.
 - Browser: the redesigned sign-in view rendered. The managed preview isolates the frontend from the Python runtime, preventing authenticated end-to-end browser acceptance here. The customer purchase and staff interaction paths have API/build coverage but are not visually signed off.
 
 ## Still required before a business pilot
