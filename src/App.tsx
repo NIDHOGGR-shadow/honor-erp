@@ -155,7 +155,7 @@ const AppContent: React.FC = () => {
             >
               <span className="inline-flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                Demo workspace · example records stored in this browser
+                Product preview · sample records stored only in this browser
               </span>
               <span>Company-controlled inventory</span>
             </div>

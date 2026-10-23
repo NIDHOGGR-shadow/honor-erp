@@ -7,7 +7,8 @@ import "./index.css";
 
 const path = window.location.pathname;
 const apiBase = import.meta.env.VITE_API_BASE || "/api/v1";
-const screen = path.startsWith("/demo") ? (
+const publicPreview = import.meta.env.VITE_PUBLIC_PREVIEW === "true";
+const screen = publicPreview || path.startsWith("/demo") ? (
   <App />
 ) : path.startsWith("/shop/") ? (
   <Storefront
