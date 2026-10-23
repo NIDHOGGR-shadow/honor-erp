@@ -6,7 +6,7 @@ The source repository is `NIDHOGGR-shadow/honor-erp`. GitHub metadata confirmed 
 
 | Service | Responsibility | Source/build |
 | --- | --- | --- |
-| Vercel | Next.js customer shop, account screens and same-origin API proxy | Root directory `apps/storefront`; Next.js; `npm run build` |
+| Vercel | Next.js customer shop, account screens, `/workspace` staff access and same-origin API proxy | Root directory `apps/storefront`; Next.js; `npm run build` |
 | Cloudflare Pages | Connected staff workspace and same-origin API proxy | Repository root; `npm ci && npm run build:cloudflare`; output `dist` |
 | PostgreSQL-capable backend host | FastAPI inventory transactions, managed identity sessions, payment endpoints | Existing root Dockerfile; database migration before traffic |
 | Worker process on backend host | Payment-event inbox, email jobs, expiry and reconciliation | Existing backend worker/cleanup commands in RUNBOOK.md |
@@ -22,9 +22,11 @@ Configure server-only variables:
 
 - `HONOR_API_ORIGIN`: the real HTTPS API origin, without an `/api` suffix.
 - `HONOR_STORE_SLUG`: the company slug created through the verified administrator's setup workflow.
-- `HONOR_WORKSPACE_URL`: the deployed Cloudflare workspace URL.
+- `HONOR_WORKSPACE_URL`: optional deployed Cloudflare workspace URL. Omit it to use the built-in `/workspace` staff route on Vercel.
 
 The UI remains explicitly unavailable if the API origin or slug is absent. Do not invent a company, products or accounts to make it appear connected. Catalogue reads are uncached and shared with stock reservations. API rewrites preserve cookie sessions on the storefront origin.
+
+The shop's **Staff sign-in** link opens `/workspace` by default. This route mounts the shared staff application, checks the existing session, and opens the inventory overview after successful staff sign-in. Company memberships and location permissions come from the API; customer sign-in grants no staff access. Invitation and password-recovery query parameters are preserved. The staff page needs `HONOR_API_ORIGIN` but does not require a public shop slug. Until that origin is configured, it shows an unavailable message and disables authentication submissions rather than attempting requests against missing API routes.
 
 ## Cloudflare Pages
 

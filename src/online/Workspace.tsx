@@ -1,3 +1,5 @@
+"use client";
+
 import React, {
   useCallback,
   useEffect,
@@ -8,6 +10,7 @@ import React, {
 import {
   Activity,
   ArrowDownToLine,
+  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Boxes,
@@ -245,8 +248,14 @@ const pages: {
 
 export default function Workspace({
   apiBase = "/api/v1",
+  configured = true,
+  initialSearch = "",
+  shopUrl,
 }: {
   apiBase?: string;
+  configured?: boolean;
+  initialSearch?: string;
+  shopUrl?: string;
 }) {
   const publicApi = useMemo(() => client(apiBase), [apiBase]);
   const [me, setMe] = useState<Me | null>(null);
@@ -259,7 +268,7 @@ export default function Workspace({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(configured);
   const [mobile, setMobile] = useState(false);
   const [modal, setModal] = useState<{ kind: string; record?: any } | null>(
     null,
@@ -273,6 +282,10 @@ export default function Workspace({
   const stockStaff = privileged || company?.role === "STOCK";
 
   const refresh = useCallback(async () => {
+    if (!configured) {
+      setLoading(false);
+      return;
+    }
     const generation = ++version.current;
     try {
       const [profile, conf] = await Promise.all([
@@ -331,7 +344,11 @@ export default function Workspace({
       if (generation !== version.current) return;
       if (e instanceof ApiError && e.status === 401) {
         setMe(null);
+        setCompanyId("");
         setData(blank);
+        setPage("Overview");
+        setLocation("ALL");
+        setQuery("");
       } else setError((e as Error).message);
       publicApi
         .request("/config")
@@ -340,7 +357,7 @@ export default function Workspace({
     } finally {
       if (generation === version.current) setLoading(false);
     }
-  }, [publicApi, companyId, apiBase]);
+  }, [publicApi, companyId, apiBase, configured]);
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -352,6 +369,7 @@ export default function Workspace({
     return () => clearInterval(interval);
   }, [refresh, !!me, busy]);
   useEffect(() => {
+    if (!configured) return;
     const tokens = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     if (tokens.has("access_token") && tokens.has("refresh_token")) {
       const access = tokens.get("access_token"),
@@ -366,7 +384,7 @@ export default function Workspace({
         .then(() => refresh())
         .catch((e) => setError(e.message));
     }
-  }, [publicApi]);
+  }, [publicApi, configured]);
   async function act(operation: () => Promise<any>, success = "Changes saved") {
     if (busy) return;
     setBusy(true);
@@ -413,7 +431,15 @@ export default function Workspace({
     return (
       <SignIn
         api={publicApi}
-        refresh={refresh}
+        refresh={async () => {
+          setPage("Overview");
+          setLocation("ALL");
+          setQuery("");
+          await refresh();
+        }}
+        configured={configured}
+        initialSearch={initialSearch}
+        shopUrl={shopUrl}
         development={config?.development}
         error={error}
         setError={setError}
@@ -2172,19 +2198,27 @@ function CompanyForm({
 function SignIn({
   api,
   refresh,
+  configured,
+  initialSearch,
+  shopUrl,
   development,
   error,
   setError,
 }: {
   api: ReturnType<typeof client>;
   refresh: () => Promise<void>;
+  configured: boolean;
+  initialSearch: string;
+  shopUrl?: string;
   development?: boolean;
   error: string;
   setError: (e: string) => void;
 }) {
   const [mode, setMode] = useState<"login" | "register" | "recover" | "reset">(
     () =>
-      new URLSearchParams(window.location.search).has("recovery")
+      new URLSearchParams(
+        typeof window === "undefined" ? initialSearch : window.location.search,
+      ).has("recovery")
         ? "reset"
         : "login",
   );
@@ -2192,6 +2226,7 @@ function SignIn({
     [message, setMessage] = useState("");
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!configured || busy) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -2250,11 +2285,16 @@ function SignIn({
       </section>
       <section className="flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm">
+          {shopUrl && (
+            <a href={shopUrl} className="honor-text-button mb-8">
+              <ArrowLeft size={15} /> Back to shop
+            </a>
+          )}
           <div className="mb-12 lg:hidden">
             <Brand />
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-700">
-            Honor workspace
+            Honor staff workspace
           </p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight">
             {mode === "register"
@@ -2263,13 +2303,26 @@ function SignIn({
                 ? "Recover your access."
                 : mode === "reset"
                   ? "Choose a new password."
-                  : "Welcome back."}
+                  : "Staff sign-in"}
           </h2>
           <p className="mt-4 text-sm leading-6 text-zinc-500">
             {mode === "register"
               ? "Create your account, then accept your company's invitation."
-              : "Sign in to the company workspace you have been given access to."}
+              : mode === "recover"
+                ? "Enter your staff email to receive password recovery instructions."
+                : mode === "reset"
+                  ? "Choose a new password for your staff account."
+                  : "Use your staff email and password. Your company administrator controls your access."}
           </p>
+          {!configured && (
+            <p
+              role="status"
+              className="mt-5 rounded-lg bg-amber-50 p-3 text-xs leading-6 text-amber-800"
+            >
+              Staff sign-in is not available yet. Please check back soon or
+              contact your company administrator.
+            </p>
+          )}
           {development && (
             <p className="mt-5 rounded-lg bg-amber-50 p-3 text-xs leading-6 text-amber-800">
               Development workspace. Use the account created during local setup.
@@ -2331,11 +2384,14 @@ function SignIn({
                 />
               </Field>
             )}
-            <button disabled={busy} className="honor-button w-full">
+            <button
+              disabled={busy || !configured}
+              className="honor-button w-full"
+            >
               {busy
                 ? "Please wait…"
                 : mode === "login"
-                  ? "Sign in"
+                  ? "Sign in to workspace"
                   : mode === "register"
                     ? "Create account"
                     : mode === "reset"
