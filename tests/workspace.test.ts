@@ -35,3 +35,14 @@ test("configured staff entry waits for a verified session before rendering compa
   assert.match(html, /Opening your workspace/);
   assert.doesNotMatch(html, /Shared company workspace|Stock updates from your company records/);
 });
+
+test("a recovery link takes priority over restoring an existing staff session", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(Workspace, {
+      configured: true,
+      initialSearch: "recovery=test-recovery-token",
+    }),
+  );
+  assert.match(html, /Choose a new password/);
+  assert.doesNotMatch(html, /Opening your workspace|Shared company workspace|test-recovery-token/);
+});

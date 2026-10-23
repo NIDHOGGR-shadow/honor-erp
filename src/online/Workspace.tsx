@@ -35,7 +35,6 @@ import {
 } from "lucide-react";
 import {
   ApiError,
-  Balance,
   client,
   Company,
   Location,
@@ -45,6 +44,12 @@ import {
   Product,
 } from "./api";
 import { Badge, Brand, Empty, Field, Modal } from "./ui";
+import {
+  blankWorkspace as blank,
+  canOpenWorkspacePage,
+  loadWorkspaceSession,
+  type WorkspaceBundle as Bundle,
+} from "./workspaceSession";
 
 function HandoverForm({
   order,
@@ -206,44 +211,19 @@ type Page =
   | "Activity"
   | "Security"
   | "Company";
-type Bundle = {
-  locations: Location[];
-  products: Product[];
-  balances: Balance[];
-  orders: Order[];
-  movements: any[];
-  transfers: any[];
-  team: any[];
-  audit: any[];
-  jobs: any[];
-  destinations: Location[];
-};
-const blank: Bundle = {
-  locations: [],
-  products: [],
-  balances: [],
-  orders: [],
-  movements: [],
-  transfers: [],
-  team: [],
-  audit: [],
-  jobs: [],
-  destinations: [],
-};
 const pages: {
   label: Page;
   icon: React.ComponentType<any>;
-  admin?: boolean;
 }[] = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Inventory", icon: Boxes },
   { label: "Receive stock", icon: ArrowDownToLine },
   { label: "Transfers", icon: Truck },
   { label: "Orders", icon: ShoppingBag },
-  { label: "People & access", icon: Users, admin: true },
+  { label: "People & access", icon: Users },
   { label: "Activity", icon: Activity },
   { label: "Security", icon: ShieldCheck },
-  { label: "Company", icon: Settings, admin: true },
+  { label: "Company", icon: Settings },
 ];
 
 export default function Workspace({
@@ -258,6 +238,11 @@ export default function Workspace({
   shopUrl?: string;
 }) {
   const publicApi = useMemo(() => client(apiBase), [apiBase]);
+  const [recoveryToken, setRecoveryToken] = useState(() =>
+    new URLSearchParams(
+      initialSearch || (typeof window === "undefined" ? "" : window.location.search),
+    ).get("recovery") || "",
+  );
   const [me, setMe] = useState<Me | null>(null);
   const [companyId, setCompanyId] = useState("");
   const [data, setData] = useState<Bundle>(blank);
@@ -268,7 +253,7 @@ export default function Workspace({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(configured);
+  const [loading, setLoading] = useState(configured && !recoveryToken);
   const [mobile, setMobile] = useState(false);
   const [modal, setModal] = useState<{ kind: string; record?: any } | null>(
     null,
@@ -276,88 +261,72 @@ export default function Workspace({
   const [enrolment, setEnrolment] = useState<any>(null);
   const [invitationLink, setInvitationLink] = useState("");
   const version = useRef(0);
+  const accessIdentity = useRef("");
   const company = me?.companies.find((c) => c.id === companyId);
   const api = useMemo(() => client(apiBase, companyId), [apiBase, companyId]);
   const privileged = company?.role === "ADMIN" || company?.role === "MANAGER";
   const stockStaff = privileged || company?.role === "STOCK";
 
+  const clearSession = useCallback(() => {
+    ++version.current;
+    accessIdentity.current = "";
+    setMe(null);
+    setCompanyId("");
+    setData(blank);
+    setPage("Overview");
+    setLocation("ALL");
+    setQuery("");
+    setModal(null);
+    setEnrolment(null);
+    setInvitationLink("");
+    setNotice("");
+    setMobile(false);
+    setLoading(false);
+  }, []);
   const refresh = useCallback(async () => {
-    if (!configured) {
+    if (!configured || recoveryToken) {
       setLoading(false);
       return;
     }
     const generation = ++version.current;
     try {
-      const [profile, conf] = await Promise.all([
-        publicApi.request<Me>("/me"),
-        publicApi.request("/config"),
-      ]);
+      const next = await loadWorkspaceSession(apiBase, companyId);
       if (generation !== version.current) return;
-      setMe(profile);
-      setConfig(conf);
-      const selected =
-        profile.companies.find((c) => c.id === companyId) ||
-        profile.companies[0];
-      if (!selected) {
-        setCompanyId("");
-        setData(blank);
-        return;
-      }
-      if (selected.id !== companyId) {
-        setCompanyId(selected.id);
-        return;
-      }
-      const protectedApi = client(apiBase, selected.id);
-      const paths = [
-        "/locations",
-        "/products",
-        "/stock/balances",
-        "/orders",
-        "/stock/movements",
-        "/transfers",
-      ];
-      const responses = await Promise.all(
-        paths.map((path) => protectedApi.request(path)),
-      );
-      const [team, audit, jobs, destinations] = await Promise.all([
-        selected.role === "ADMIN" ? protectedApi.request("/team") : [],
-        selected.role === "ADMIN" ? protectedApi.request("/audit") : [],
-        selected.role === "ADMIN" ? protectedApi.request("/jobs") : [],
-        selected.role !== "SALES"
-          ? protectedApi.request("/transfer-destinations")
-          : [],
-      ]);
-      if (generation !== version.current) return;
-      setData({
-        locations: responses[0],
-        products: responses[1],
-        balances: responses[2],
-        orders: responses[3],
-        movements: responses[4],
-        transfers: responses[5],
-        team,
-        audit,
-        jobs,
-        destinations,
-      });
-    } catch (e) {
-      if (generation !== version.current) return;
-      if (e instanceof ApiError && e.status === 401) {
-        setMe(null);
-        setCompanyId("");
-        setData(blank);
+      const selected = next.me.companies.find((c) => c.id === next.companyId);
+      const identity = JSON.stringify([next.me.id, next.companyId, selected?.role]);
+      if (identity !== accessIdentity.current) {
         setPage("Overview");
         setLocation("ALL");
         setQuery("");
+        setModal(null);
+        setEnrolment(null);
+        setInvitationLink("");
+        accessIdentity.current = identity;
+      }
+      setMe(next.me);
+      setCompanyId(next.companyId);
+      setData(next.data);
+    } catch (e) {
+      if (generation !== version.current) return;
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        const hadAccess = !!accessIdentity.current;
+        clearSession();
+        if (e.status === 403)
+          setError("Your workspace access has changed. Sign in again or contact your company administrator.");
+        else if (hadAccess) setError("Your session has ended. Please sign in again.");
       } else setError((e as Error).message);
-      publicApi
-        .request("/config")
-        .then(setConfig)
-        .catch(() => {});
     } finally {
       if (generation === version.current) setLoading(false);
     }
-  }, [publicApi, companyId, apiBase, configured]);
+  }, [apiBase, companyId, configured, recoveryToken, clearSession]);
+  useEffect(() => {
+    if (!configured) return;
+    let active = true;
+    publicApi.request("/config").then((value) => {
+      if (active) setConfig(value);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [publicApi, configured]);
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -369,7 +338,7 @@ export default function Workspace({
     return () => clearInterval(interval);
   }, [refresh, !!me, busy]);
   useEffect(() => {
-    if (!configured) return;
+    if (!configured || recoveryToken) return;
     const tokens = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     if (tokens.has("access_token") && tokens.has("refresh_token")) {
       const access = tokens.get("access_token"),
@@ -384,7 +353,14 @@ export default function Workspace({
         .then(() => refresh())
         .catch((e) => setError(e.message));
     }
-  }, [publicApi, configured]);
+  }, [publicApi, configured, recoveryToken]);
+  function exitRecovery() {
+    const search = new URLSearchParams(window.location.search);
+    search.delete("recovery");
+    const query = search.toString();
+    window.history.replaceState({}, "", window.location.pathname + (query ? "?" + query : ""));
+    setRecoveryToken("");
+  }
   async function act(operation: () => Promise<any>, success = "Changes saved") {
     if (busy) return;
     setBusy(true);
@@ -398,7 +374,7 @@ export default function Workspace({
       return result;
     } catch (e) {
       setError((e as Error).message);
-      if (e instanceof ApiError && e.status === 401) setMe(null);
+      if (e instanceof ApiError && e.status === 401) clearSession();
     } finally {
       setBusy(false);
     }
@@ -412,7 +388,14 @@ export default function Workspace({
     const fields = new FormData(event.currentTarget);
     await act(() => callback(fields), success);
   }
+  async function signOut() {
+    await act(async () => {
+      await publicApi.send("/auth/logout");
+      clearSession();
+    }, "Signed out");
+  }
   function go(next: Page) {
+    if (!company || !canOpenWorkspacePage(company.role, next)) return;
     setPage(next);
     setMobile(false);
     setQuery("");
@@ -432,13 +415,19 @@ export default function Workspace({
       <SignIn
         api={publicApi}
         refresh={async () => {
+          setLoading(true);
           setPage("Overview");
           setLocation("ALL");
           setQuery("");
           await refresh();
         }}
         configured={configured}
-        initialSearch={initialSearch}
+        recoveryToken={recoveryToken}
+        onExitRecovery={exitRecovery}
+        onRecoveryComplete={() => {
+          clearSession();
+          exitRecovery();
+        }}
         shopUrl={shopUrl}
         development={config?.development}
         error={error}
@@ -491,7 +480,7 @@ export default function Workspace({
           />
           <button
             className="text-xs text-zinc-500"
-            onClick={() => act(() => publicApi.send("/auth/logout"))}
+            onClick={signOut}
           >
             Sign out
           </button>
@@ -648,11 +637,7 @@ export default function Workspace({
         </div>
         <nav className="mt-3 space-y-1">
           {pages
-            .filter(
-              (p) =>
-                (!p.admin || company.role === "ADMIN") &&
-                (p.label !== "Receive stock" || stockStaff),
-            )
+            .filter((p) => canOpenWorkspacePage(company.role, p.label))
             .map((p) => (
               <button
                 key={p.label}
@@ -685,9 +670,7 @@ export default function Workspace({
           </p>
           <button
             disabled={busy}
-            onClick={() =>
-              act(() => publicApi.send("/auth/logout"), "Signed out")
-            }
+            onClick={signOut}
             className="mt-4 flex items-center gap-2 text-[10px] text-emerald-100/60"
           >
             <LogOut size={13} />
@@ -710,6 +693,11 @@ export default function Workspace({
               className="max-w-48 bg-transparent text-xs font-semibold"
               value={companyId}
               onChange={(e) => {
+                ++version.current;
+                setLoading(true);
+                setModal(null);
+                setEnrolment(null);
+                setInvitationLink("");
                 setCompanyId(e.target.value);
                 setData(blank);
                 setLocation("ALL");
@@ -2199,7 +2187,9 @@ function SignIn({
   api,
   refresh,
   configured,
-  initialSearch,
+  recoveryToken,
+  onExitRecovery,
+  onRecoveryComplete,
   shopUrl,
   development,
   error,
@@ -2208,19 +2198,16 @@ function SignIn({
   api: ReturnType<typeof client>;
   refresh: () => Promise<void>;
   configured: boolean;
-  initialSearch: string;
+  recoveryToken: string;
+  onExitRecovery: () => void;
+  onRecoveryComplete: () => void;
   shopUrl?: string;
   development?: boolean;
   error: string;
   setError: (e: string) => void;
 }) {
   const [mode, setMode] = useState<"login" | "register" | "recover" | "reset">(
-    () =>
-      new URLSearchParams(
-        typeof window === "undefined" ? initialSearch : window.location.search,
-      ).has("recovery")
-        ? "reset"
-        : "login",
+    recoveryToken ? "reset" : "login",
   );
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
@@ -2234,13 +2221,11 @@ function SignIn({
     try {
       if (mode === "reset") {
         const result = await api.send("/auth/recovery-password", {
-          token_hash: new URLSearchParams(window.location.search).get(
-            "recovery",
-          ),
+          token_hash: recoveryToken,
           new_password: values.password,
         });
         setMessage(result.message);
-        window.history.replaceState({}, "", window.location.pathname);
+        onRecoveryComplete();
         setMode("login");
       } else if (mode === "login") {
         await api.send("/auth/login", values);
@@ -2404,6 +2389,7 @@ function SignIn({
             <button
               className="text-emerald-700"
               onClick={() => {
+                if (mode === "reset") onExitRecovery();
                 setMode(mode === "login" ? "register" : "login");
                 setError("");
               }}

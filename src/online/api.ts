@@ -29,13 +29,32 @@ export function client(base = "/api/v1", companyId = "") {
         "Honor is unavailable right now. Please try again.",
       );
     }
-    const data = await response.json().catch(() => ({}));
+    if (response.ok && response.status === 204) return undefined as T;
+    const contentType = response.headers.get("Content-Type")?.split(";")[0].trim().toLowerCase();
+    const isJson = contentType === "application/json" ||
+      (contentType?.startsWith("application/") && contentType.endsWith("+json"));
+    let data: any;
+    if (isJson) {
+      try {
+        data = await response.json();
+      } catch {
+        throw new ApiError(
+          response.ok ? 502 : response.status,
+          "Honor returned an unreadable response. Please try again.",
+        );
+      }
+    }
     if (!response.ok)
       throw new ApiError(
         response.status,
-        typeof data.detail === "string"
+        typeof data?.detail === "string"
           ? data.detail
           : "We could not complete this request.",
+      );
+    if (!isJson)
+      throw new ApiError(
+        502,
+        "Honor returned an unexpected response. Please try again.",
       );
     return data;
   }
