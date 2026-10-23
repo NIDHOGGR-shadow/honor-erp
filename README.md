@@ -14,7 +14,7 @@ This implementation adapts Samuel's `srdataml-droid/Store-` frontend at commit `
 - Company memberships, location permissions, invitations, suspension, company-scoped forced sign-out and protected administrator changes.
 - Managed Supabase identity integration; server-side opaque sessions in HttpOnly cookies; password recovery/change and authenticator flows. A separate development identity adapter is forbidden in production.
 - Products, serial/IMEI tracking, quantity stock, receiving, reasoned adjustments, dispatch/receipt transfers and stock reconciliation.
-- Customer shop, cart, checkout reservations, order tracking and configured collection locations.
+- Customer shop, product details, cart, checkout reservations, private order tracking, verified account history and configured collection locations.
 - Paystack and Stripe hosted-checkout adapters with signed events, durable processing, amount/currency/reference verification and idempotent fulfilment.
 - Paid-order fulfilment and inspected line returns that reuse the original serial unit.
 - Responsive staff dashboard and Next.js public storefront, plus an empty browser preview at `/demo`. Test fixtures live under `tests/fixtures` and are not imported by the running app.
@@ -63,10 +63,12 @@ Backend integration tests require an isolated PostgreSQL database named `honor_t
 
 ## Deployment and review
 
+- [Vercel and Cloudflare deployment](docs/DEPLOYMENT.md)
+- [Customer frontend integration](docs/GEMINI_INTEGRATION.md)
 - [Setup, production configuration and operational checks](docs/RUNBOOK.md)
 - [Implemented API and remaining extensions](docs/API_CONTRACTS.md)
 - [Verified delivery and remaining work](docs/DELIVERY_STATUS.md)
 - [Stack decisions and build sequence](docs/STACK_PLAN.md)
 - [Inventory goal and wider implementation blueprint](docs/IMPLEMENTATION_PLAN.md)
 
-For the first deployment, the Docker image serves the staff dashboard and FastAPI together on Render, keeping sign-in cookies on one origin. The Next.js storefront can run on Vercel and proxies its API requests to that backend. Supabase hosts PostgreSQL and managed identity. Run migrations separately with an owner connection and use a restricted database role for the application. No resources have been provisioned or subscriptions purchased by this change.
+The Next.js customer storefront targets Vercel. The staff workspace targets Cloudflare Pages with a same-origin API proxy. The existing Docker image runs FastAPI on a PostgreSQL-capable host and can also serve the staff frontend if needed. Supabase hosts PostgreSQL and managed identity. Run migrations separately with an owner connection and use a restricted database role for the application. No resources have been provisioned or subscriptions purchased by this change.

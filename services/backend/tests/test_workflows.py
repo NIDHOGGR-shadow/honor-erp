@@ -92,7 +92,10 @@ def test_checkout_reserves_without_physical_issue(env):
     assert stock(env) == (1, 1)
     assert checkout(env)[0].status_code == 409
     order = response.json()
-    assert env["client"].get(f"/api/v1/customer/orders/{order['id']}").status_code == 404
+    # A verified owner can retrieve the order without the separate guest credential.
+    assert env["client"].get(f"/api/v1/customer/orders/{order['id']}").status_code == 200
+    with TestClient(env["app"]) as guest:
+        assert guest.get(f"/api/v1/customer/orders/{order['id']}").status_code == 404
     assert (
         env["client"]
         .get(f"/api/v1/customer/orders/{order['id']}", headers={"X-Order-Key": token})
@@ -478,3 +481,56 @@ def test_two_concurrent_buyers_cannot_reserve_last_unit(env):
     assert sorted(results) == [201, 409]
     assert stock(env) == (1, 1)
     assert not any(reconcile(env["sessions"]).values())
+
+
+def test_customer_account_ownership_is_scoped_and_guest_email_is_not_a_claim(env):
+    client = env["client"]
+    owned, key = checkout(env, "charger", 1)
+    assert owned.status_code == 201
+    owned_id = owned.json()["id"]
+    assert client.get("/api/v1/customer/me").json()["email"] == "admin@example.test"
+    history = client.get("/api/v1/customer/orders?shop=test-shop")
+    assert history.status_code == 200
+    assert [o["id"] for o in history.json()] == [owned_id]
+    assert client.get("/api/v1/customer/orders?shop=other-shop").json() == []
+    with TestClient(env["app"]) as other:
+        assert (
+            other.post(
+                "/api/v1/auth/login", json={"email": "stranger@example.test", "password": PASSWORD}
+            ).status_code
+            == 200
+        )
+        assert other.get("/api/v1/customer/orders?shop=test-shop").json() == []
+        assert other.get(f"/api/v1/customer/orders/{owned_id}").status_code == 404
+        assert other.post(f"/api/v1/checkouts/{owned_id}/payment").status_code == 404
+        assert other.post(f"/api/v1/customer/orders/{owned_id}/cancel").status_code == 404
+    with TestClient(env["app"]) as guest:
+        token = str(uuid4()) + str(uuid4())
+        result = guest.post(
+            "/api/v1/storefront/test-shop/checkouts",
+            headers={"Idempotency-Key": str(uuid4())},
+            json={
+                "customer_name": "Guest",
+                "email": "admin@example.test",
+                "client_token": token,
+                "lines": [{"product_id": env["charger"], "quantity": 1}],
+            },
+        )
+        assert result.status_code == 201
+        guest_id = result.json()["id"]
+        assert client.get(f"/api/v1/customer/orders/{guest_id}").status_code == 404
+        assert (
+            guest.get(f"/api/v1/customer/orders/{guest_id}", headers={"X-Order-Key": token}).status_code
+            == 200
+        )
+    assert [o["id"] for o in client.get("/api/v1/customer/orders?shop=test-shop").json()] == [owned_id]
+    assert client.post(f"/api/v1/checkouts/{owned_id}/payment").status_code == 200
+    assert client.post(f"/api/v1/customer/orders/{owned_id}/cancel").status_code == 200
+    assert client.post("/api/v1/auth/logout").status_code == 200
+    assert client.get("/api/v1/customer/orders?shop=test-shop").status_code == 401
+    assert client.get(f"/api/v1/customer/orders/{owned_id}").status_code == 404
+
+
+def test_public_collection_locations_exclude_internal_warehouses(env):
+    data = env["client"].get("/api/v1/storefront/test-shop").json()
+    assert data["locations"] == [{"id": env["main"], "name": "Main", "address": "Test collection address"}]

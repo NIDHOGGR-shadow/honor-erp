@@ -1,7 +1,17 @@
 import Storefront from "../../../src/online/Storefront";
 import type { Catalogue } from "../../../src/online/api";
 export const dynamic = "force-dynamic";
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const search = await searchParams;
+  const initialSearch = new URLSearchParams(
+    Object.entries(search).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  ).toString();
   const slug = process.env.HONOR_STORE_SLUG;
   const origin = process.env.HONOR_API_ORIGIN?.replace(/\/$/, "");
   let initial: Catalogue | undefined;
@@ -16,17 +26,12 @@ export default async function Page() {
       /* The public UI offers a retry if the store is temporarily unavailable. */
     }
   }
-  if (!slug)
-    return (
-      <main style={{ padding: "4rem", fontFamily: "system-ui" }}>
-        <h1>Honor store</h1>
-        <p>This store is not available right now. Please try again soon.</p>
-      </main>
-    );
   return (
     <Storefront
-      slug={slug}
+      slug={slug || ""}
       initial={initial}
+      initialSearch={initialSearch}
+      configured={Boolean(slug && origin)}
       staffUrl={process.env.HONOR_WORKSPACE_URL || "/workspace"}
     />
   );

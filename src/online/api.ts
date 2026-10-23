@@ -156,6 +156,7 @@ export type Catalogue = {
   checkout_enabled: boolean;
   simulation: boolean;
   fulfilment: string;
+  locations?: { id: string; name: string; address: string }[];
 };
 export const money = (minor: number, currency: string) =>
   new Intl.NumberFormat("en-GB", {

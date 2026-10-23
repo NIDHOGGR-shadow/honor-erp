@@ -41,15 +41,16 @@ def guard_merchant(settings, company_id):
         raise HTTPException(503, "This company does not have a configured merchant account")
 
 
-def order_access(db, order_id, token):
+def order_access(db, order_id, token, customer_id=None):
     order = db.get(Order, order_id)
-    if not order or not hmac.compare_digest(order.access_hash, digest(token or "")):
+    owned = order and customer_id and order.customer_id == customer_id
+    if not order or not (owned or hmac.compare_digest(order.access_hash, digest(token or ""))):
         raise HTTPException(404, "Order not found")
     return order
 
 
-def begin_payment(db, order_id, token, settings):
-    order_access(db, order_id, token)
+def begin_payment(db, order_id, token, settings, customer_id=None):
+    order_access(db, order_id, token, customer_id)
     order = db.scalar(
         select(Order).where(Order.id == order_id).with_for_update().execution_options(populate_existing=True)
     )

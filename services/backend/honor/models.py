@@ -204,6 +204,7 @@ class Order(Base):
     __tablename__ = "orders"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     company_id: Mapped[str] = mapped_column(ForeignKey("companies.id"), index=True)
+    customer_id: Mapped[str | None] = mapped_column(ForeignKey("identities.id"), index=True)
     location_id: Mapped[str] = mapped_column(String(36))
     customer_name: Mapped[str] = mapped_column(String(120))
     email: Mapped[str] = mapped_column(String(254))

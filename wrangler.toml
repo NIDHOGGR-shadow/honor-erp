@@ -1,0 +1,5 @@
+name = "honor-workspace"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-10-23"
+# Configure HONOR_API_ORIGIN in Cloudflare project variables, never in client code.
+# No database URL, identity secret or payment credential belongs in this deployment.

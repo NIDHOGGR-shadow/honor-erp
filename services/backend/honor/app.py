@@ -892,6 +892,14 @@ def create_app(settings=None, sessions=None):
         return {
             "company": {"name": company.name, "slug": company.slug, "currency": company.currency},
             "products": result,
+            "locations": [
+                {"id": loc.id, "name": loc.name, "address": loc.address}
+                for loc in db.scalars(
+                    select(Location)
+                    .where(Location.company_id == company.id, Location.fulfil_online.is_(True))
+                    .order_by(Location.name)
+                )
+            ],
             "checkout_enabled": enabled,
             "simulation": settings.payment_provider == "sandbox",
             "fulfilment": "COLLECTION",
@@ -904,11 +912,30 @@ def create_app(settings=None, sessions=None):
         if not company:
             raise HTTPException(404, "Shop not found")
         payments.guard_merchant(settings, company.id)
-        return inventory.reserve(db, company, data, idempotency_key, settings)
+        customer_id = current(db, request)[0].id if request.cookies.get(COOKIE) else None
+        return inventory.reserve(db, company, data, idempotency_key, settings, customer_id)
+
+    @app.get("/api/v1/customer/me")
+    def customer_profile(request: Request, db: Db):
+        user, _ = current(db, request)
+        return {"id": user.id, "name": user.name, "email": user.email}
+
+    @app.get("/api/v1/customer/orders")
+    def customer_orders(request: Request, db: Db, shop: str = Query(min_length=1, max_length=80)):
+        user, _ = current(db, request)
+        orders = db.scalars(
+            select(Order)
+            .join(Company)
+            .where(Order.customer_id == user.id, Company.slug == shop)
+            .order_by(Order.created_at.desc())
+            .limit(200)
+        )
+        return [order_json(db, order) for order in orders]
 
     @app.get("/api/v1/customer/orders/{order_id}")
-    def customer_order(order_id: str, db: Db, x_order_key: str = Header(default="")):
-        order = payments.order_access(db, order_id, x_order_key)
+    def customer_order(order_id: str, request: Request, db: Db, x_order_key: str = Header(default="")):
+        customer_id = current(db, request)[0].id if not x_order_key and request.cookies.get(COOKIE) else None
+        order = payments.order_access(db, order_id, x_order_key, customer_id)
         if order.status == "RESERVED" and aware(order.expires_at) <= now():
             order = db.scalar(
                 select(Order)
@@ -922,16 +949,18 @@ def create_app(settings=None, sessions=None):
         return order_json(db, order)
 
     @app.post("/api/v1/checkouts/{order_id}/payment")
-    def payment(order_id: str, db: Db, x_order_key: str = Header(default="")):
-        return payments.begin_payment(db, order_id, x_order_key, settings)
+    def payment(order_id: str, request: Request, db: Db, x_order_key: str = Header(default="")):
+        customer_id = current(db, request)[0].id if not x_order_key and request.cookies.get(COOKIE) else None
+        return payments.begin_payment(db, order_id, x_order_key, settings, customer_id)
 
     @app.post("/api/v1/checkouts/{order_id}/simulate")
     def simulate(order_id: str, db: Db, x_order_key: str = Header(default="")):
         return payments.simulate_payment(db, settings, order_id, x_order_key)
 
     @app.post("/api/v1/customer/orders/{order_id}/cancel")
-    def cancel(order_id: str, db: Db, x_order_key: str = Header(default="")):
-        payments.order_access(db, order_id, x_order_key)
+    def cancel(order_id: str, request: Request, db: Db, x_order_key: str = Header(default="")):
+        customer_id = current(db, request)[0].id if not x_order_key and request.cookies.get(COOKIE) else None
+        payments.order_access(db, order_id, x_order_key, customer_id)
         order = db.scalar(
             select(Order)
             .where(Order.id == order_id)

@@ -1,246 +1,597 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
-  Check,
-  Headphones,
+  Eye,
+  EyeOff,
+  MapPin,
   Minus,
   Package,
   Plus,
+  RefreshCw,
   Search,
   ShieldCheck,
   ShoppingBag,
-  Smartphone,
-  Truck,
-  X,
-  Zap,
+  Trash2,
 } from "lucide-react";
-import { Catalogue, client, money, Order } from "./api";
-import { Badge, Brand, Field } from "./ui";
+import { ApiError, money, type Catalogue, type Order } from "./api";
+import {
+  customerApi,
+  checkoutLines,
+  orderLabel,
+  paymentLabel,
+  readCart,
+  readRoute,
+  type Cart,
+  type Customer,
+  type ShopView,
+} from "./customer";
+import { Brand, Field } from "./ui";
 
+type Props = {
+  slug: string;
+  apiBase?: string;
+  initial?: Catalogue;
+  staffUrl?: string;
+  initialSearch?: string;
+  configured?: boolean;
+};
+const message = (error: unknown) =>
+  error instanceof Error
+    ? error.message
+    : "We could not complete this request. Please try again.";
+const input = "online-input";
+
+// Customer presentation adapted from the supplied Gemini storefront. Honor contracts and
+// inventory/payment rules remain shared with the staff application.
 export default function Storefront({
   slug,
   apiBase = "/api/v1",
   initial,
   staffUrl = "/workspace",
-}: {
-  slug: string;
-  apiBase?: string;
-  initial?: Catalogue;
-  staffUrl?: string;
-}) {
-  const api = useMemo(() => client(apiBase), [apiBase]);
-  const [catalogue, setCatalogue] = useState<Catalogue | undefined>(initial);
-  const [cart, setCart] = useState<Record<string, number>>({});
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("All");
+  initialSearch = "",
+  configured = true,
+}: Props) {
+  const api = useMemo(() => customerApi(apiBase, slug), [apiBase, slug]);
+  const [route, setRoute] = useState(() => readRoute(initialSearch));
+  const [catalogue, setCatalogue] = useState(initial);
+  const [loading, setLoading] = useState(!initial && configured);
+  const [catalogueError, setCatalogueError] = useState(
+    configured ? "" : "This shop is not available yet. Please check back soon.",
+  );
+  const [cart, setCart] = useState<Cart>({});
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [history, setHistory] = useState<Order[] | null>(null);
+  const [profileError, setProfileError] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
-  const [secret, setSecret] = useState("");
+  const [orderKey, setOrderKey] = useState("");
+  const [lookupId, setLookupId] = useState("");
+  const [lookupKey, setLookupKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [simulation, setSimulation] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("All");
+  const [inStock, setInStock] = useState(false);
+  const [sort, setSort] = useState("name");
+  const products = catalogue?.products || [];
+  const currency = catalogue?.company.currency || "USD";
+  const cartSlot = "honor:cart:" + slug;
+  const tokenSlot = "honor:checkout-key:" + slug;
+  const currentOrderSlot = "honor:current-order:" + slug;
+  const items = products.filter((p) => cart[p.id] > 0);
+  const missing = Object.keys(cart).filter(
+    (id) => !products.some((p) => p.id === id),
+  );
+  const invalidCart =
+    missing.length > 0 || items.some((p) => cart[p.id] > p.available);
+  const count = Object.values(cart).reduce((a, b) => a + b, 0);
+  const total = items.reduce((sum, p) => sum + p.price_minor * cart[p.id], 0);
+  const selected = products.find((p) => p.id === route.product);
+
+  const loadCatalogue = useCallback(async () => {
+    if (!configured) return;
+    setLoading(true);
+    setCatalogueError("");
+    try {
+      setCatalogue(await api.catalogue());
+    } catch (e) {
+      setCatalogueError(message(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [api, configured]);
+  const loadProfile = useCallback(async () => {
+    if (!configured) return;
+    setProfileError("");
+    try {
+      setCustomer(await api.profile());
+    } catch (e) {
+      setCustomer(null);
+      if (!(e instanceof ApiError && e.status === 401))
+        setProfileError("Account services are unavailable. Please try again.");
+    }
+  }, [api, configured]);
   const applyOrder = useCallback(
     (next: Order) => {
       setOrder(next);
-      if (next.payment_status === "PAID") {
+      if (
+        next.payment_status === "PAID" &&
+        sessionStorage.getItem(currentOrderSlot) === next.id &&
+        sessionStorage.getItem("honor:cleared-order:" + slug) !== next.id
+      ) {
+        sessionStorage.setItem("honor:cleared-order:" + slug, next.id);
         setCart({});
-        sessionStorage.removeItem("honor:cart:" + slug);
+        sessionStorage.removeItem(cartSlot);
+        sessionStorage.removeItem(tokenSlot);
       }
     },
-    [slug],
+    [cartSlot, tokenSlot, currentOrderSlot, slug],
   );
-  const load = useCallback(async () => {
-    const data = await api.request<Catalogue>(
-      "/storefront/" + encodeURIComponent(slug),
-    );
-    setCatalogue(data);
-  }, [api, slug]);
+  const loadOrder = useCallback(
+    async (id: string, key = "") => {
+      const next = await api.order(id, key);
+      applyOrder(next);
+      return next;
+    },
+    [api, applyOrder],
+  );
   useEffect(() => {
-    load().catch((e) => setError(e.message));
+    setRoute(readRoute(window.location.search));
+    loadCatalogue();
+    loadProfile();
     try {
-      setCart(JSON.parse(sessionStorage.getItem("honor:cart:" + slug) || "{}"));
+      setCart(readCart(sessionStorage.getItem(cartSlot)));
+      const id =
+        new URLSearchParams(window.location.search).get("order") ||
+        sessionStorage.getItem(currentOrderSlot);
+      if (id && configured) {
+        const key = sessionStorage.getItem("honor:order:" + id) || "";
+        setOrderKey(key);
+        loadOrder(id, key).catch((e) => setError(message(e)));
+      }
     } catch {
-      /* Invalid local cart starts empty. */
+      setError(
+        "Your browser could not restore saved checkout details. You can use your private order access code to look up an order.",
+      );
     }
-    const id =
-      new URLSearchParams(window.location.search).get("order") ||
-      sessionStorage.getItem("honor:current-order:" + slug);
-    if (id) {
-      const key = sessionStorage.getItem("honor:order:" + id);
-      if (key) {
-        setSecret(key);
-        api
-          .request<Order>("/customer/orders/" + id, {
-            headers: { "X-Order-Key": key },
-          })
-          .then(applyOrder)
-          .catch((e) => setError(e.message));
-      } else
-        setNotice(
-          "To view a private order, return using the browser where you checked out or contact the store with your reference.",
-        );
-    }
-  }, [load, api, slug, applyOrder]);
+  }, [
+    loadCatalogue,
+    loadProfile,
+    cartSlot,
+    currentOrderSlot,
+    loadOrder,
+    configured,
+  ]);
+  useEffect(() => {
+    const sync = () => {
+      setRoute(readRoute(window.location.search));
+      setError("");
+      setNotice("");
+    };
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
+  useEffect(() => {
+    setHistory(null);
+    if (route.view !== "account" || !customer) return;
+    let active = true;
+    api
+      .orders()
+      .then((orders) => {
+        if (active) setHistory(orders);
+      })
+      .catch((e) => {
+        if (active) setProfileError(message(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, route.view, customer]);
   useEffect(() => {
     if (!order || !["RESERVED", "PAID"].includes(order.status)) return;
-    const timer = setInterval(() => {
-      api
-        .request<Order>("/customer/orders/" + order.id, {
-          headers: { "X-Order-Key": secret },
-        })
-        .then(applyOrder)
-        .catch(() => {});
-    }, 5000);
+    const timer = setInterval(
+      () => loadOrder(order.id, orderKey).catch((e) => setError(message(e))),
+      5000,
+    );
     return () => clearInterval(timer);
-  }, [order?.id, order?.status, secret, api, applyOrder]);
-  const currency = catalogue?.company.currency || "USD";
-  const products = catalogue?.products || [];
-  const categories = ["All", ...new Set(products.map((p) => p.category))];
-  const shown = products.filter(
-    (p) =>
-      (category === "All" || p.category === category) &&
-      `${p.name} ${p.sku}`.toLowerCase().includes(query.toLowerCase()),
-  );
-  const items = products.filter((p) => cart[p.id] > 0);
-  const count = items.reduce((sum, p) => sum + cart[p.id], 0);
-  const total = items.reduce((sum, p) => sum + cart[p.id] * p.price_minor, 0);
-  function change(id: string, delta: number) {
+  }, [order?.id, order?.status, orderKey, loadOrder]);
+
+  function href(view: ShopView, product = "") {
+    const params = new URLSearchParams();
+    if (view !== "shop") params.set("view", view);
+    if (product) params.set("product", product);
+    return "?" + params.toString();
+  }
+  function navigate(view: ShopView, product = "") {
+    window.history.pushState({}, "", href(view, product));
+    setRoute({ view, product });
     setError("");
-    setCart((previous) => {
-      const product = products.find((p) => p.id === id);
-      const next = {
-        ...previous,
-        [id]: Math.max(
-          0,
-          Math.min(product?.available || 0, (previous[id] || 0) + delta),
-        ),
-      };
-      sessionStorage.setItem("honor:cart:" + slug, JSON.stringify(next));
-      return next;
-    });
+    setNotice("");
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+  function link(
+    event: React.MouseEvent<HTMLAnchorElement>,
+    view: ShopView,
+    product = "",
+  ) {
+    if (
+      event.button ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    navigate(view, product);
+  }
+  function updateCart(id: string, quantity: number) {
+    if (quantity > 0 && !cart[id] && Object.keys(cart).length >= 50) {
+      setNotice("Checkout supports up to 50 different items. Complete this cart before starting another.");
+      return;
+    }
+    const product = products.find((p) => p.id === id);
+    const next = { ...cart };
+    const q = Math.max(
+      0,
+      Math.min(100, product?.available || 0, Math.floor(quantity)),
+    );
+    if (q) next[id] = q;
+    else delete next[id];
+    setCart(next);
+    try {
+      sessionStorage.setItem(cartSlot, JSON.stringify(next));
+    } catch {
+      setNotice(
+        "Your cart cannot be saved in this browser. Keep this page open while shopping.",
+      );
+    }
+  }
+  async function run(action: () => Promise<void>) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
   }
   async function pay(id: string, key: string) {
-    const result = await api.send(
-      "/checkouts/" + id + "/payment",
-      undefined,
-      "POST",
-      { "X-Order-Key": key },
-    );
-    if (result.url) window.location.assign(result.url);
-    else setSimulation(result.simulation === true);
+    const result = await api.pay(id, key);
+    if (result.url) {
+      const url = new URL(result.url);
+      if (url.protocol !== "https:")
+        throw new Error("The payment link is unavailable. Contact the store.");
+      window.location.assign(url.href);
+    } else if (result.simulation && catalogue?.simulation)
+      setNotice(
+        "Development checkout: no money has been charged. Use the clearly labelled test action below.",
+      );
+    else
+      throw new Error(
+        "Online payment is unavailable. Your order status is shown below.",
+      );
   }
-  async function checkout(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    const form = new FormData(event.currentTarget);
-    try {
-      let key = sessionStorage.getItem("honor:checkout-key:" + slug);
+  function checkout(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    run(async () => {
+      if (!catalogue?.checkout_enabled || invalidCart || !items.length)
+        throw new Error("Refresh your cart before checking out.");
+      // Resolve an existing hold before creating another one after a payment/network failure.
+      const previousId = sessionStorage.getItem(currentOrderSlot);
+      if (previousId) {
+        const previousKey =
+          sessionStorage.getItem("honor:order:" + previousId) || "";
+        const previous = await api.order(previousId, previousKey);
+        if (previous.status === "RESERVED") {
+          applyOrder(previous);
+          setOrderKey(previousKey);
+          navigate("account");
+          setNotice(
+            "You already have an active order. Continue payment or cancel that reservation before starting another.",
+          );
+          return;
+        }
+      }
+      let key = sessionStorage.getItem(tokenSlot);
       if (!key) {
         key = crypto.randomUUID() + crypto.randomUUID();
-        sessionStorage.setItem("honor:checkout-key:" + slug, key);
+        sessionStorage.setItem(tokenSlot, key);
       }
-      const created = await api.command<Order>(
-        "/storefront/" + slug + "/checkouts",
-        {
-          customer_name: form.get("name"),
-          email: form.get("email"),
-          client_token: key,
-          lines: items.map((p) => ({ product_id: p.id, quantity: cart[p.id] })),
-        },
+      const created = await api.reserve(
+        String(form.get("name")),
+        String(form.get("email")),
+        key,
+        checkoutLines(cart, products),
       );
+      // Save the guest credential before fetching details or opening hosted payment.
       sessionStorage.setItem("honor:order:" + created.id, key);
-      sessionStorage.setItem("honor:current-order:" + slug, created.id);
-      setSecret(key);
-      const full = await api.request<Order>("/customer/orders/" + created.id, {
-        headers: { "X-Order-Key": key },
-      });
-      setOrder(full);
+      sessionStorage.setItem(currentOrderSlot, created.id);
+      setOrderKey(key);
+      navigate("account");
+      await loadOrder(created.id, key);
       await pay(created.id, key);
-    } catch (e) {
-      setError((e as Error).message);
-      load().catch(() => {});
-    } finally {
-      setBusy(false);
-    }
+    });
   }
-  async function orderAction(action: "pay" | "simulate" | "cancel") {
-    if (!order) return;
-    setBusy(true);
-    setError("");
-    try {
-      if (action === "pay") await pay(order.id, secret);
-      else
-        await api.send(
-          (action === "simulate" ? "/checkouts/" : "/customer/orders/") +
-            order.id +
-            "/" +
-            action,
-          undefined,
-          "POST",
-          { "X-Order-Key": secret },
+  function auth(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    run(async () => {
+      if (!configured) throw new Error("Sign-in is not available yet.");
+      const email = String(data.get("email"));
+      if (route.view === "recover")
+        setNotice((await api.recover(email)).message);
+      else if (route.view === "signup") {
+        const result = await api.register(
+          String(data.get("name")),
+          email,
+          String(data.get("password")),
         );
-      applyOrder(
-        await api.request<Order>("/customer/orders/" + order.id, {
-          headers: { "X-Order-Key": secret },
-        }),
-      );
-      await load();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+        navigate("login");
+        setNotice(result.message);
+      } else {
+        await api.login(email, String(data.get("password")));
+        await loadProfile();
+        navigate("account");
+      }
+      form.reset();
+    });
   }
-  function newOrder() {
-    setOrder(null);
-    setSimulation(false);
-    sessionStorage.removeItem("honor:current-order:" + slug);
-    sessionStorage.removeItem("honor:checkout-key:" + slug);
-    window.history.replaceState({}, "", window.location.pathname);
-    load().catch((e) => setError(e.message));
+  const shown = products
+    .filter(
+      (p) =>
+        (category === "All" || p.category === category) &&
+        (!inStock || p.available > 0) &&
+        `${p.name} ${p.sku} ${p.category}`
+          .toLowerCase()
+          .includes(query.toLowerCase()),
+    )
+    .sort((a, b) =>
+      sort === "price-asc"
+        ? a.price_minor - b.price_minor
+        : sort === "price-desc"
+          ? b.price_minor - a.price_minor
+          : a.name.localeCompare(b.name),
+    );
+  const back = (
+    <button className="honor-text-button mb-5" onClick={() => navigate("shop")}>
+      <ArrowLeft size={16} /> Back to shop
+    </button>
+  );
+  const activeView = route.view;
+  const nav = (view: ShopView, label: string) => (
+    <a
+      href={href(view)}
+      onClick={(e) => link(e, view)}
+      aria-current={activeView === view ? "page" : undefined}
+      className={`py-2 text-sm font-medium ${activeView === view ? "text-emerald-800 underline decoration-emerald-600 underline-offset-8" : "text-zinc-600 hover:text-zinc-900"}`}
+    >
+      {label}
+    </a>
+  );
+  function quantity(id: string, value: number, max: number) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white p-1">
+        <button
+          className="p-2"
+          aria-label={
+            "Decrease quantity of " +
+            (products.find((p) => p.id === id)?.name || "item")
+          }
+          onClick={() => updateCart(id, value - 1)}
+        >
+          <Minus size={16} />
+        </button>
+        <span className="min-w-6 text-center tabular-nums">{value}</span>
+        <button
+          className="p-2 disabled:opacity-30"
+          disabled={value >= max}
+          aria-label={
+            "Increase quantity of " +
+            (products.find((p) => p.id === id)?.name || "item")
+          }
+          onClick={() => updateCart(id, value + 1)}
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+    );
   }
-  return (
-    <div className="online-app min-h-screen bg-[#f8f9f7] text-zinc-900">
-      <header className="border-b border-zinc-200/70 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5 sm:px-8">
-          <Brand small />
-          <div className="flex items-center gap-5">
-            <a
-              className="hidden text-xs text-zinc-500 sm:block"
-              href={staffUrl}
-            >
-              Staff sign in
-            </a>
-            <button
-              onClick={() =>
-                document
-                  .getElementById("your-bag")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
-              className="flex items-center gap-2 rounded-full border border-zinc-200 px-4 py-2 text-xs"
-            >
-              <ShoppingBag size={16} />
-              Your bag
-              <span className="rounded-full bg-emerald-700 px-1.5 text-white">
-                {count}
-              </span>
-            </button>
+  function empty(title: string, text: string) {
+    return (
+      <div className="rounded-2xl border border-zinc-200 bg-white px-6 py-16 text-center">
+        <Package size={36} className="mx-auto mb-5 text-zinc-400" />
+        <h2 className="text-xl font-semibold text-zinc-900">{title}</h2>
+        <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-600">
+          {text}
+        </p>
+      </div>
+    );
+  }
+  function orderCard(value: Order) {
+    return (
+      <section
+        className="honor-panel p-6 sm:p-8 space-y-6"
+        aria-label="Order details"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="honor-eyebrow">Your order</p>
+            <h2 className="mt-2 break-all font-mono text-sm">{value.id}</h2>
+          </div>
+          <strong className="text-xl">
+            {money(value.total_minor, value.currency)}
+          </strong>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl bg-zinc-50 p-4">
+            <p className="text-sm text-zinc-500">Order status</p>
+            <p className="mt-1 font-semibold">{orderLabel(value.status)}</p>
+          </div>
+          <div className="rounded-xl bg-zinc-50 p-4">
+            <p className="text-sm text-zinc-500">Payment status</p>
+            <p className="mt-1 font-semibold">
+              {paymentLabel(value.payment_status)}
+            </p>
           </div>
         </div>
-      </header>
-      <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12">
-        {catalogue?.simulation && (
-          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-xs text-amber-900">
-            Demonstration store · fictional products · payments are simulated.
-            No money is collected.
+        {value.status === "PAID" && (
+          <p className="text-sm leading-6 text-emerald-800">
+            Your payment is confirmed. Payment confirmation does not mean your
+            items are ready for collection. Contact the store about collection.
+          </p>
+        )}
+        {value.payment_status === "REFUND_REQUIRED" && (
+          <p className="text-sm text-amber-900">
+            The store needs to review this payment and stock allocation. A
+            refund has not been completed.
+          </p>
+        )}
+        {value.status === "RESERVED" && (
+          <p className="text-sm text-zinc-600">
+            Reservation expires {new Date(value.expires_at).toLocaleString()}.
+            Payment is confirmed only after the payment service verifies it.
+          </p>
+        )}
+        {value.collection_location && (
+          <div className="flex gap-3 rounded-xl border border-zinc-200 p-4">
+            <MapPin size={20} className="shrink-0 text-emerald-700" />
+            <div>
+              <h3 className="font-semibold">
+                {value.collection_location.name}
+              </h3>
+              <p className="mt-1 text-sm text-zinc-600">
+                {value.collection_location.address}
+              </p>
+            </div>
           </div>
         )}
+        <ul className="divide-y divide-zinc-100">
+          {value.lines.map((line) => (
+            <li
+              key={line.product_id}
+              className="flex justify-between gap-4 py-3 text-sm"
+            >
+              <span>
+                {line.name} × {line.quantity}
+              </span>
+              <strong>
+                {money(line.price_minor * line.quantity, value.currency)}
+              </strong>
+            </li>
+          ))}
+        </ul>
+        {value.status === "RESERVED" && (
+          <div className="flex flex-wrap gap-3">
+            <button
+              disabled={busy}
+              className="honor-button"
+              onClick={() => run(() => pay(value.id, orderKey))}
+            >
+              Continue to payment <ArrowRight size={16} />
+            </button>
+            <button
+              disabled={busy}
+              className="online-secondary"
+              onClick={() =>
+                run(async () => {
+                  await api.cancel(value.id, orderKey);
+                  await loadOrder(value.id, orderKey);
+                  sessionStorage.removeItem(tokenSlot);
+                  await loadCatalogue();
+                })
+              }
+            >
+              Cancel unpaid order
+            </button>
+            {catalogue?.simulation && (
+              <button
+                className="online-secondary"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await api.simulate(value.id, orderKey);
+                    await loadOrder(value.id, orderKey);
+                  })
+                }
+              >
+                Development only: simulate payment
+              </button>
+            )}
+          </div>
+        )}
+        <button
+          className="honor-text-button"
+          disabled={busy}
+          onClick={() =>
+            run(async () => {
+              await loadOrder(value.id, orderKey);
+            })
+          }
+        >
+          <RefreshCw size={15} /> Refresh status
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <div className="online-app flex min-h-screen flex-col bg-[#fafafa] text-zinc-900">
+      <a
+        href="#shop-content"
+        className="sr-only focus:not-sr-only focus:block focus:p-4"
+      >
+        Skip to content
+      </a>
+      <div className="bg-zinc-900 px-4 py-2.5 text-center text-xs text-zinc-200">
+        Collection from the store · Stock is held after a successful reservation
+      </div>
+      <header className="border-b border-zinc-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-8 gap-y-4 px-5 py-5 sm:px-8">
+          <a
+            href={href("shop")}
+            onClick={(e) => link(e, "shop")}
+            aria-label="Honor shop"
+          >
+            <Brand small />
+          </a>
+          <nav
+            aria-label="Customer navigation"
+            className="order-3 flex w-full flex-wrap gap-x-6 gap-y-2 border-t border-zinc-100 pt-3 md:order-none md:w-auto md:border-0 md:p-0"
+          >
+            {nav("shop", "Shop")}
+            {nav("locations", "Collection")}
+            {nav("account", "Your orders")}
+            {!customer && nav("login", "Sign in")}
+          </nav>
+          <a
+            href={href("cart")}
+            onClick={(e) => link(e, "cart")}
+            className="online-secondary"
+            aria-label={`View cart, ${count} items`}
+          >
+            <ShoppingBag size={18} />
+            <span>Cart</span>
+            <span className="tabular-nums">{count}</span>
+          </a>
+        </div>
+      </header>
+      <main
+        id="shop-content"
+        className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 sm:px-8 sm:py-14"
+      >
         {error && (
           <div
             role="alert"
-            className="mb-5 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-800"
+            className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-900"
           >
             {error}
           </div>
@@ -248,365 +599,745 @@ export default function Storefront({
         {notice && (
           <div
             role="status"
-            className="mb-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800"
+            className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900"
           >
             {notice}
           </div>
         )}
-        <section className="mb-10 grid gap-6 rounded-3xl border border-emerald-900/10 bg-[#eaf0e8] p-7 sm:p-10 md:grid-cols-[1fr_auto] md:items-center">
-          <div>
-            <p className="mb-4 text-[10px] font-semibold uppercase tracking-[.2em] text-emerald-800">
-              {catalogue?.company.name || "Honor store"}
-            </p>
-            <h1 className="max-w-xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-              Find your next everyday essential.
-            </h1>
-            <p className="mt-4 max-w-lg text-sm leading-7 text-zinc-600">
-              Browse the collection, pay securely online and collect your order
-              from the store.
-            </p>
-            <a
-              href="#collection"
-              className="mt-6 inline-flex items-center gap-2 text-xs font-semibold text-emerald-900"
-            >
-              Explore the collection
-              <ArrowRight size={16} />
-            </a>
-          </div>
-          <div className="hidden h-36 w-36 items-center justify-center rounded-[2rem] bg-white/60 text-emerald-800 md:flex">
-            <ShoppingBag size={62} strokeWidth={1.1} />
-          </div>
-        </section>
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <section id="collection">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold tracking-tight">
-                  The collection
-                </h2>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {products.length} products, ready to discover
-                </p>
-              </div>
-              <label className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
-                <Search size={15} className="text-zinc-400" />
-                <input
-                  className="w-36 bg-transparent text-xs outline-none"
-                  aria-label="Search products"
-                  placeholder="Search products"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </label>
-            </div>
-            <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
-              {categories.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCategory(c)}
-                  className={`whitespace-nowrap rounded-full px-4 py-2 text-xs ${category === c ? "bg-zinc-900 text-white" : "border border-zinc-200 bg-white text-zinc-600"}`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {shown.map((p) => {
-                const Icon =
-                  p.category === "Phones"
-                    ? Smartphone
-                    : p.category === "Audio"
-                      ? Headphones
-                      : Zap;
-                return (
-                  <article
-                    key={p.id}
-                    className="overflow-hidden rounded-2xl border border-zinc-200/70 bg-white"
-                  >
-                    <div className="relative flex aspect-[1.2] items-center justify-center bg-[#f0f2ee] text-zinc-500">
-                      {p.image_url ? (
-                        <img
-                          src={p.image_url}
-                          alt={p.name}
-                          className="h-full w-full object-contain p-6"
-                        />
-                      ) : (
-                        <Icon size={68} strokeWidth={1} />
-                      )}
-                      <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] text-zinc-600">
-                        {p.category}
-                      </span>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="min-h-10 text-sm font-semibold leading-5">
-                        {p.name}
-                      </h3>
-                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-zinc-500">
-                        {p.description}
-                      </p>
-                      <div className="mt-5 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold">
-                            {money(p.price_minor, currency)}
-                          </p>
-                          <p
-                            className={`mt-1 text-[10px] ${p.available ? "text-emerald-700" : "text-zinc-400"}`}
-                          >
-                            {p.available
-                              ? "Available for collection"
-                              : "Out of stock"}
-                          </p>
-                        </div>
-                        <button
-                          aria-label={"Add " + p.name + " to bag"}
-                          onClick={() => change(p.id, 1)}
-                          disabled={
-                            !p.available ||
-                            (cart[p.id] || 0) >= p.available ||
-                            !!order
-                          }
-                          className="rounded-xl bg-emerald-800 p-2.5 text-white disabled:bg-zinc-200 disabled:text-zinc-400"
-                        >
-                          <Plus size={17} />
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-            {!catalogue && !error && (
-              <p className="py-16 text-center text-sm text-zinc-500">
-                Opening the collection…
+        {activeView === "shop" && (
+          <>
+            <div className="mb-8">
+              <p className="honor-eyebrow">
+                {catalogue?.company.name || "Honor"}
               </p>
-            )}
-            {catalogue && !shown.length && (
-              <p className="py-16 text-center text-sm text-zinc-500">
-                No products match your search.
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+                Shop the collection
+              </h1>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">
+                Find what you need, check availability and collect from the
+                store.
               </p>
-            )}
-          </section>
-          <aside
-            id="your-bag"
-            className="h-fit scroll-mt-6 rounded-2xl border border-zinc-200/70 bg-white p-6 lg:sticky lg:top-6"
-          >
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="font-semibold">
-                {order ? "Your order" : "Your bag"}
-              </h2>
-              <ShoppingBag className="text-zinc-400" size={18} />
             </div>
-            {order ? (
-              <div className="space-y-5">
-                <Badge
-                  warning={["EXPIRED", "EXCEPTION", "CANCELLED"].includes(
-                    order.status,
-                  )}
-                >
-                  {order.status.replaceAll("_", " ")}
-                </Badge>
-                <p className="text-xs text-zinc-500">
-                  Reference {order.id.slice(0, 8).toUpperCase()}
-                </p>
-                {order.lines?.map((line) => (
-                  <div
-                    key={line.product_id}
-                    className="flex justify-between gap-3 text-xs"
+            {catalogueError && (
+              <div
+                role="alert"
+                className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm"
+              >
+                <p>{catalogueError}</p>
+                {configured && (
+                  <button
+                    className="honor-text-button mt-2"
+                    onClick={loadCatalogue}
                   >
-                    <span>
-                      {line.name} × {line.quantity}
-                    </span>
-                    <span>
-                      {money(line.price_minor * line.quantity, order.currency)}
-                    </span>
-                  </div>
-                ))}
-                <div className="flex justify-between border-t border-zinc-100 pt-4 text-sm font-semibold">
-                  <span>Total</span>
-                  <span>{money(order.total_minor, order.currency)}</span>
-                </div>
-                {order.collection_location && (
-                  <div className="rounded-lg bg-zinc-50 p-3 text-xs leading-6">
-                    <p className="font-medium">
-                      Collect from {order.collection_location.name}
-                    </p>
-                    <p className="text-zinc-500">
-                      {order.collection_location.address}
-                    </p>
-                  </div>
-                )}
-                {order.payment_status === "PAID" && (
-                  <p
-                    role="status"
-                    className="flex items-start gap-2 text-xs leading-6 text-emerald-800"
-                  >
-                    <Check size={16} className="mt-1 shrink-0" />
-                    {order.status === "FULFILLED"
-                      ? "Your order has been handed over. Thank you."
-                      : "Payment received. The store is preparing your order for collection."}
-                  </p>
-                )}
-                {order.payment_status === "REFUND_REQUIRED" && (
-                  <p role="status" className="text-xs leading-6 text-amber-800">
-                    Your payment needs the store's attention because the order
-                    could not be allocated. Contact the store with your
-                    reference for resolution or refund.
-                  </p>
-                )}
-                {order.status === "RESERVED" && (
-                  <>
-                    <p className="text-xs leading-6 text-zinc-500">
-                      Stock reserved until{" "}
-                      {new Date(order.expires_at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      . Payment is confirmed by the store's payment service.
-                    </p>
-                    {simulation ? (
-                      <button
-                        disabled={busy}
-                        onClick={() => orderAction("simulate")}
-                        className="honor-button w-full"
-                      >
-                        Simulate successful payment
-                      </button>
-                    ) : (
-                      <button
-                        disabled={busy}
-                        onClick={() => orderAction("pay")}
-                        className="honor-button w-full"
-                      >
-                        {busy ? "Opening checkout…" : "Continue to payment"}
-                        <ArrowRight size={15} />
-                      </button>
-                    )}
-                    <button
-                      disabled={busy}
-                      onClick={() => orderAction("cancel")}
-                      className="w-full text-xs text-zinc-500"
-                    >
-                      Cancel unpaid order
-                    </button>
-                  </>
-                )}
-                {order.status !== "RESERVED" && (
-                  <button onClick={newOrder} className="honor-button w-full">
-                    Continue shopping
+                    <RefreshCw size={15} /> Try again
                   </button>
                 )}
               </div>
-            ) : (
+            )}
+            {(catalogue || loading) && (
+              <div className="mb-8 flex flex-wrap items-end gap-4 rounded-xl border border-zinc-200 bg-white p-4">
+                <div className="min-w-48 flex-1">
+                  <Field label="Search products">
+                    <div className="relative">
+                      <Search
+                        size={17}
+                        className="absolute left-3 top-3.5 text-zinc-400"
+                      />
+                      <input
+                        className={input + " pl-10"}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Name, SKU or category"
+                      />
+                    </div>
+                  </Field>
+                </div>
+                <Field label="Category">
+                  <select
+                    className={input}
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                  >
+                    {["All", ...new Set(products.map((p) => p.category))].map(
+                      (c) => (
+                        <option key={c}>{c}</option>
+                      ),
+                    )}
+                  </select>
+                </Field>
+                <Field label="Sort by">
+                  <select
+                    className={input}
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value)}
+                  >
+                    <option value="name">Name: A–Z</option>
+                    <option value="price-asc">Price: low to high</option>
+                    <option value="price-desc">Price: high to low</option>
+                  </select>
+                </Field>
+                <label className="flex min-h-11 items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={inStock}
+                    onChange={(e) => setInStock(e.target.checked)}
+                  />{" "}
+                  In stock only
+                </label>
+              </div>
+            )}
+            {loading && !catalogue ? (
+              <p role="status" className="py-16 text-center text-zinc-500">
+                Loading the collection…
+              </p>
+            ) : catalogue && products.length === 0 ? (
+              empty(
+                "No products available yet",
+                "The store has not published any products. Check back soon.",
+              )
+            ) : catalogue && !shown.length ? (
               <>
-                {!items.length ? (
-                  <div className="py-6 text-center">
-                    <Package size={30} className="mx-auto text-zinc-300" />
-                    <p className="mt-4 text-sm text-zinc-500">
-                      A little space for something good.
-                    </p>
-                    <p className="mt-2 text-xs text-zinc-400">
-                      Add a product to get started.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-5">
-                      {items.map((p) => (
-                        <div key={p.id}>
-                          <div className="flex justify-between gap-3 text-xs">
-                            <span className="font-medium">{p.name}</span>
-                            <button
-                              aria-label={"Remove " + p.name}
-                              onClick={() => change(p.id, -cart[p.id])}
-                            >
-                              <X size={13} />
-                            </button>
-                          </div>
-                          <div className="mt-3 flex items-center justify-between">
-                            <div className="flex items-center gap-4 rounded-lg border border-zinc-200 p-1.5">
-                              <button
-                                aria-label={"Decrease " + p.name}
-                                onClick={() => change(p.id, -1)}
-                              >
-                                <Minus size={13} />
-                              </button>
-                              <span className="text-xs">{cart[p.id]}</span>
-                              <button
-                                aria-label={"Increase " + p.name}
-                                onClick={() => change(p.id, 1)}
-                              >
-                                <Plus size={13} />
-                              </button>
-                            </div>
-                            <span className="text-xs">
-                              {money(p.price_minor * cart[p.id], currency)}
-                            </span>
-                          </div>
+                {empty(
+                  "No matching products",
+                  "Try another search or clear your filters.",
+                )}
+                <button
+                  className="honor-text-button mt-4"
+                  onClick={() => {
+                    setQuery("");
+                    setCategory("All");
+                    setInStock(false);
+                  }}
+                >
+                  Clear filters
+                </button>
+              </>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {shown.map((p) => (
+                  <article
+                    key={p.id}
+                    className="overflow-hidden rounded-xl border border-zinc-200 bg-white"
+                  >
+                    <a
+                      href={href("product", p.id)}
+                      onClick={(e) => link(e, "product", p.id)}
+                      className="block"
+                    >
+                      <div className="flex aspect-[4/3] items-center justify-center bg-zinc-100">
+                        {p.image_url ? (
+                          <img
+                            src={p.image_url}
+                            alt={p.name}
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <Package size={40} className="text-zinc-300" />
+                        )}
+                      </div>
+                      <div className="p-5">
+                        <p className="text-xs text-zinc-500">
+                          {p.category} · {p.sku}
+                        </p>
+                        <h2 className="mt-2 text-base font-semibold leading-6">
+                          {p.name}
+                        </h2>
+                        <p className="mt-3 text-sm text-zinc-600 line-clamp-2">
+                          {p.description}
+                        </p>
+                        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+                          <strong>{money(p.price_minor, currency)}</strong>
+                          <span
+                            className={`text-xs ${p.available > 0 ? "text-emerald-800" : "text-zinc-500"}`}
+                          >
+                            {p.available > 0
+                              ? "Available for collection"
+                              : "Out of stock"}
+                          </span>
                         </div>
-                      ))}
+                      </div>
+                    </a>
+                  </article>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        {activeView === "product" && (
+          <>
+            {back}
+            {loading ? (
+              <p role="status">Loading product…</p>
+            ) : !selected ? (
+              empty(
+                "Product unavailable",
+                catalogueError ||
+                  "This product is not in the published collection.",
+              )
+            ) : (
+              <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-14">
+                <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-zinc-100">
+                  {selected.image_url ? (
+                    <img
+                      src={selected.image_url}
+                      alt={selected.name}
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <Package size={70} className="text-zinc-300" />
+                  )}
+                </div>
+                <section className="honor-panel p-6 sm:p-8">
+                  <p className="honor-eyebrow">{selected.category}</p>
+                  <h1 className="mt-3 text-3xl font-semibold leading-tight">
+                    {selected.name}
+                  </h1>
+                  <p className="mt-3 font-mono text-xs text-zinc-500">
+                    SKU {selected.sku}
+                  </p>
+                  <p className="mt-7 text-3xl font-semibold">
+                    {money(selected.price_minor, currency)}
+                  </p>
+                  <p className="mt-5 whitespace-pre-line text-sm leading-7 text-zinc-600">
+                    {selected.description}
+                  </p>
+                  <p className="mt-6 text-sm font-medium text-emerald-800">
+                    {selected.available > 0
+                      ? "Available for collection"
+                      : "Out of stock"}
+                  </p>
+                  <div className="mt-7 flex flex-wrap gap-3">
+                    {cart[selected.id] ? (
+                      quantity(
+                        selected.id,
+                        cart[selected.id],
+                        Math.min(100, selected.available),
+                      )
+                    ) : (
+                      <button
+                        disabled={selected.available <= 0}
+                        className="honor-button"
+                        onClick={() => updateCart(selected.id, 1)}
+                      >
+                        <Plus size={17} /> Add to cart
+                      </button>
+                    )}
+                    <button
+                      className="online-secondary"
+                      onClick={() => navigate("cart")}
+                    >
+                      View cart <ArrowRight size={16} />
+                    </button>
+                  </div>
+                  <p className="mt-6 border-t border-zinc-100 pt-5 text-sm leading-6 text-zinc-500">
+                    Adding to your cart does not hold stock. Availability and
+                    price are checked when you reserve.
+                  </p>
+                </section>
+              </div>
+            )}
+          </>
+        )}
+        {(activeView === "cart" || activeView === "checkout") && (
+          <>
+            {back}
+            <h1 className="mb-8 text-3xl font-semibold">
+              {activeView === "cart" ? "Your cart" : "Review & checkout"}
+            </h1>
+            {!count ? (
+              <>
+                {empty(
+                  "Your cart is empty",
+                  "Products you choose will appear here.",
+                )}
+                <button
+                  className="honor-button mt-6"
+                  onClick={() => navigate("shop")}
+                >
+                  Browse the collection
+                </button>
+              </>
+            ) : (
+              <div className="grid items-start gap-8 lg:grid-cols-3">
+                <div className="space-y-5 lg:col-span-2">
+                  {missing.map((id) => (
+                    <div
+                      key={id}
+                      className="honor-panel flex items-center justify-between gap-4 p-5"
+                    >
+                      <p className="text-sm">An item is no longer available.</p>
+                      <button
+                        className="online-secondary"
+                        onClick={() => updateCart(id, 0)}
+                      >
+                        Remove
+                      </button>
                     </div>
-                    <div className="mt-6 flex justify-between border-t border-zinc-100 pt-5 text-sm font-semibold">
-                      <span>Total</span>
-                      <span>{money(total, currency)}</span>
+                  ))}
+                  {items.map((p) => (
+                    <div
+                      key={p.id}
+                      className="honor-panel flex flex-wrap items-center gap-5 p-5"
+                    >
+                      <div className="min-w-40 flex-1">
+                        <h2 className="font-semibold">{p.name}</h2>
+                        <p className="mt-1 text-xs text-zinc-500">{p.sku}</p>
+                        <p className="mt-3 text-sm">
+                          {money(p.price_minor, currency)} each
+                        </p>
+                        {cart[p.id] > p.available && (
+                          <p className="mt-2 text-sm text-amber-900">
+                            Availability changed. Reduce the quantity or remove
+                            this item.
+                          </p>
+                        )}
+                      </div>
+                      {quantity(p.id, cart[p.id], Math.min(100, p.available))}
+                      <strong className="min-w-20 text-right">
+                        {money(cart[p.id] * p.price_minor, currency)}
+                      </strong>
+                      <button
+                        className="p-2 text-zinc-500"
+                        aria-label={"Remove " + p.name}
+                        onClick={() => updateCart(p.id, 0)}
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </div>
-                    <p className="mt-2 text-[10px] leading-5 text-zinc-400">
-                      Collection only. Stock and final prices are checked at
-                      checkout.
-                    </p>
-                    <form onSubmit={checkout} className="mt-6 space-y-4">
-                      <Field label="Your name">
+                  ))}
+                  {activeView === "checkout" && (
+                    <form
+                      id="checkout-form"
+                      onSubmit={checkout}
+                      className="honor-panel space-y-5 p-6 sm:p-8"
+                    >
+                      <h2 className="text-xl font-semibold">Your details</h2>
+                      <Field label="Full name">
                         <input
-                          required
+                          key={customer?.id + "-name"}
+                          className={input}
                           name="name"
+                          autoComplete="name"
+                          required
                           minLength={2}
                           maxLength={120}
-                          autoComplete="name"
-                          className="online-input"
+                          defaultValue={customer?.name || ""}
                         />
                       </Field>
                       <Field label="Email for your order">
                         <input
-                          required
+                          key={customer?.id + "-email"}
+                          className={input}
                           type="email"
                           name="email"
-                          maxLength={254}
                           autoComplete="email"
-                          className="online-input"
+                          required
+                          maxLength={254}
+                          defaultValue={customer?.email || ""}
                         />
                       </Field>
-                      <button
-                        disabled={busy || !catalogue?.checkout_enabled}
-                        className="honor-button w-full"
-                      >
-                        {busy ? "Reserving your items…" : "Reserve & checkout"}
-                        <ArrowRight size={15} />
-                      </button>
-                    </form>
-                    {!catalogue?.checkout_enabled && (
-                      <p className="mt-3 text-xs text-amber-800">
-                        This store is not accepting online payments yet.
+                      <p className="text-sm leading-6 text-zinc-500">
+                        The store will allocate your complete order to one
+                        collection location. Its address appears after your
+                        reservation. No delivery is included.
                       </p>
-                    )}
-                  </>
-                )}
-              </>
+                      {!customer && (
+                        <p className="text-sm leading-6">
+                          Guest checkout is available.{" "}
+                          <a
+                            className="text-emerald-800 underline"
+                            href={href("login")}
+                            onClick={(e) => link(e, "login")}
+                          >
+                            Sign in
+                          </a>{" "}
+                          first to save this order in your account.
+                        </p>
+                      )}
+                    </form>
+                  )}
+                </div>
+                <aside className="honor-panel space-y-5 p-6">
+                  <h2 className="text-lg font-semibold">Order summary</h2>
+                  <div className="flex justify-between text-sm">
+                    <span>Items ({count})</span>
+                    <span>{money(total, currency)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Fulfilment</span>
+                    <span>Collection</span>
+                  </div>
+                  <div className="flex justify-between border-t border-zinc-200 pt-5 font-semibold">
+                    <span>Estimated total</span>
+                    <span>{money(total, currency)}</span>
+                  </div>
+                  <p className="text-sm leading-6 text-zinc-500">
+                    Final prices and stock are confirmed by the store when your
+                    order is reserved.
+                  </p>
+                  {invalidCart && (
+                    <p role="alert" className="text-sm text-amber-900">
+                      Update unavailable items before continuing.
+                    </p>
+                  )}
+                  {activeView === "cart" ? (
+                    <button
+                      disabled={invalidCart || !catalogue || loading}
+                      className="honor-button w-full"
+                      onClick={() => navigate("checkout")}
+                    >
+                      Continue to checkout <ArrowRight size={16} />
+                    </button>
+                  ) : (
+                    <button
+                      form="checkout-form"
+                      type="submit"
+                      disabled={
+                        busy ||
+                        invalidCart ||
+                        !catalogue?.checkout_enabled ||
+                        !configured
+                      }
+                      className="honor-button w-full"
+                    >
+                      {busy ? "Checking availability…" : "Reserve & pay"}
+                      <ArrowRight size={16} />
+                    </button>
+                  )}
+                  {!catalogue?.checkout_enabled && (
+                    <p className="text-sm text-amber-900">
+                      This store is not accepting online payments yet.
+                    </p>
+                  )}
+                  <p className="flex gap-2 text-xs leading-5 text-zinc-500">
+                    <ShieldCheck size={16} className="shrink-0" />
+                    Payment details are entered at hosted checkout.
+                  </p>
+                </aside>
+              </div>
             )}
-            <div className="mt-6 space-y-3 border-t border-zinc-100 pt-5 text-[10px] text-zinc-500">
-              <p className="flex items-center gap-2">
-                <ShieldCheck size={14} />
-                Payment handled through secure checkout
+          </>
+        )}
+        {["login", "signup", "recover"].includes(activeView) && (
+          <div className="mx-auto max-w-md">
+            {back}
+            <h1 className="text-3xl font-semibold">
+              {activeView === "signup"
+                ? "Create your account"
+                : activeView === "recover"
+                  ? "Reset your password"
+                  : "Welcome back"}
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-zinc-500">
+              Keep your orders together and make your next visit easier.
+            </p>
+            <form
+              key={activeView}
+              onSubmit={auth}
+              className="honor-panel mt-8 space-y-5 p-6 sm:p-8"
+            >
+              {activeView === "signup" && (
+                <Field label="Your name">
+                  <input
+                    className={input}
+                    name="name"
+                    autoComplete="name"
+                    required
+                    maxLength={120}
+                  />
+                </Field>
+              )}
+              <Field label="Email address">
+                <input
+                  className={input}
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  maxLength={254}
+                />
+              </Field>
+              {activeView !== "recover" && (
+                <Field label="Password">
+                  <div className="relative">
+                    <input
+                      name="password"
+                      className={input + " pr-12"}
+                      type={showPassword ? "text" : "password"}
+                      autoComplete={
+                        activeView === "signup"
+                          ? "new-password"
+                          : "current-password"
+                      }
+                      required
+                      minLength={activeView === "signup" ? 12 : 1}
+                      maxLength={256}
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-2 p-2"
+                      aria-label={
+                        showPassword ? "Hide password" : "Show password"
+                      }
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                    </button>
+                  </div>
+                  {activeView === "signup" && (
+                    <span className="block text-xs text-zinc-500">
+                      Use at least 12 characters.
+                    </span>
+                  )}
+                </Field>
+              )}
+              <button
+                className="honor-button w-full"
+                disabled={busy || !configured}
+              >
+                {busy
+                  ? "Please wait…"
+                  : activeView === "signup"
+                    ? "Create account"
+                    : activeView === "recover"
+                      ? "Send recovery link"
+                      : "Sign in"}
+              </button>
+              {!configured && (
+                <p className="text-sm text-zinc-500">
+                  Sign-in is not available yet.
+                </p>
+              )}
+              <p className="text-center text-sm text-zinc-500">
+                Google sign-in is not available yet.
               </p>
-              <p className="flex items-center gap-2">
-                <Truck size={14} />
-                Collect directly from the store
-              </p>
+            </form>
+            <div className="mt-6 flex flex-wrap justify-between gap-3 text-sm">
+              {nav(
+                activeView === "signup" ? "login" : "signup",
+                activeView === "signup"
+                  ? "Already have an account? Sign in"
+                  : "Create an account",
+              )}
+              {activeView !== "recover" && nav("recover", "Forgot password?")}
             </div>
-          </aside>
-        </div>
+          </div>
+        )}
+        {activeView === "account" && (
+          <div className="mx-auto max-w-3xl">
+            {back}
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-semibold">Your orders</h1>
+                <p className="mt-3 text-sm text-zinc-500">
+                  {customer
+                    ? `Signed in as ${customer.name} · ${customer.email}`
+                    : "Sign in for your order history, or use your private order access code."}
+                </p>
+              </div>
+              {customer && (
+                <button
+                  className="online-secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      await api.logout();
+                      setCustomer(null);
+                      setHistory(null);
+                      setOrder(null);
+                      setOrderKey("");
+                      for (const key of Object.keys(sessionStorage))
+                        if (key.startsWith("honor:order:"))
+                          sessionStorage.removeItem(key);
+                      sessionStorage.removeItem(currentOrderSlot);
+                      sessionStorage.removeItem(tokenSlot);
+                      setNotice("You are signed out.");
+                    })
+                  }
+                >
+                  Sign out
+                </button>
+              )}
+            </div>
+            {profileError && (
+              <div role="alert" className="mb-6 text-sm text-amber-900">
+                {profileError}{" "}
+                <button className="underline" onClick={loadProfile}>
+                  Try again
+                </button>
+              </div>
+            )}
+            {customer && (
+              <section className="mb-8">
+                <h2 className="mb-4 text-lg font-semibold">Account history</h2>
+                {history === null ? (
+                  <p role="status" className="text-sm text-zinc-500">
+                    {profileError
+                      ? "Order history could not be loaded."
+                      : "Loading your orders…"}
+                  </p>
+                ) : !history.length ? (
+                  empty(
+                    "No orders yet",
+                    "Orders you place while signed in will appear here. Guest orders stay private to their access code.",
+                  )
+                ) : (
+                  <ul className="honor-panel divide-y divide-zinc-100">
+                    {history.map((item) => (
+                      <li key={item.id}>
+                        <button
+                          className="flex w-full flex-wrap items-center justify-between gap-4 p-5 text-left"
+                          onClick={() =>
+                            run(async () => {
+                              const key =
+                                sessionStorage.getItem(
+                                  "honor:order:" + item.id,
+                                ) || "";
+                              await loadOrder(item.id, key);
+                              setOrderKey(key);
+                            })
+                          }
+                        >
+                          <span>
+                            <span className="block text-sm font-semibold">
+                              {orderLabel(item.status)}
+                            </span>
+                            <span className="mt-1 block font-mono text-xs text-zinc-500">
+                              {item.id}
+                            </span>
+                          </span>
+                          <span className="text-sm font-semibold">
+                            {money(item.total_minor, item.currency)}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+            {!customer && (
+              <a
+                href={href("login")}
+                onClick={(e) => link(e, "login")}
+                className="honor-button mb-8"
+              >
+                Sign in to your account <ArrowRight size={16} />
+              </a>
+            )}
+            {order && orderCard(order)}
+            <details className="honor-panel mt-8 p-6" open={!order}>
+              <summary className="cursor-pointer font-semibold">
+                Look up a private order
+              </summary>
+              <form
+                className="mt-6 space-y-5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  run(async () => {
+                    await loadOrder(lookupId.trim(), lookupKey.trim());
+                    setOrderKey(lookupKey.trim());
+                  });
+                }}
+              >
+                <Field label="Order reference">
+                  <input
+                    className={input}
+                    value={lookupId}
+                    onChange={(e) => setLookupId(e.target.value)}
+                    required
+                    maxLength={36}
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field label="Private order access code">
+                  <input
+                    className={input}
+                    type="password"
+                    value={lookupKey}
+                    onChange={(e) => setLookupKey(e.target.value)}
+                    required
+                    minLength={32}
+                    maxLength={128}
+                    autoComplete="off"
+                  />
+                </Field>
+                <p className="text-sm leading-6 text-zinc-500">
+                  Keep this code private. Your email and order reference alone
+                  cannot open a guest order.
+                </p>
+                <button
+                  className="online-secondary"
+                  disabled={busy || !configured}
+                >
+                  Check order
+                </button>
+              </form>
+            </details>
+            {order && orderKey && (
+              <details className="mt-5 rounded-xl border border-zinc-200 p-4 text-sm">
+                <summary className="cursor-pointer">
+                  Save your private order access code
+                </summary>
+                <p className="mt-3 leading-6 text-zinc-500">
+                  This browser remembers the code for this session. Save it
+                  securely if you need to open your guest order elsewhere.
+                </p>
+                <code className="mt-3 block break-all rounded bg-white p-3">
+                  {orderKey}
+                </code>
+              </details>
+            )}
+          </div>
+        )}
+        {activeView === "locations" && (
+          <>
+            {back}
+            <h1 className="text-3xl font-semibold">Collection locations</h1>
+            <p className="mt-4 mb-8 max-w-xl text-sm leading-7 text-zinc-600">
+              Your order is assigned to a location that can supply every item.
+              Confirm the address on your order before travelling.
+            </p>
+            {catalogueError ? (
+              <p role="alert" className="text-sm text-amber-900">
+                Collection details are unavailable right now.
+              </p>
+            ) : !catalogue ? (
+              <p role="status">Loading collection details…</p>
+            ) : !catalogue.locations?.length ? (
+              empty(
+                "Collection details unavailable",
+                "Collection addresses will appear when the store makes them available.",
+              )
+            ) : (
+              <div className="grid gap-5 sm:grid-cols-2">
+                {catalogue.locations.map((loc) => (
+                  <section key={loc.id} className="honor-panel p-6">
+                    <MapPin className="mb-4 text-emerald-700" size={22} />
+                    <h2 className="font-semibold">{loc.name}</h2>
+                    <p className="mt-3 text-sm leading-6 text-zinc-500">
+                      {loc.address}
+                    </p>
+                  </section>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </main>
-      <footer className="mx-auto mt-6 flex max-w-7xl flex-wrap justify-between gap-3 border-t border-zinc-200 px-5 py-7 text-[10px] text-zinc-400 sm:px-8">
-        <span>{catalogue?.company.name || "Honor"}</span>
-        <span>Powered by Honor · Inventory, in order.</span>
+      <footer className="mt-12 border-t border-zinc-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-5 px-5 py-8 text-sm text-zinc-500 sm:px-8">
+          <p>{catalogue?.company.name || "Honor"} · Powered by Honor</p>
+          <a
+            className="underline underline-offset-4 hover:text-zinc-900"
+            href={staffUrl}
+          >
+            Staff sign-in
+          </a>
+        </div>
       </footer>
     </div>
   );

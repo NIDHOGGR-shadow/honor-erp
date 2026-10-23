@@ -327,7 +327,7 @@ def expire(db, company_id=None):
         release(db, order, "EXPIRED")
 
 
-def reserve(db, company, data, key, settings):
+def reserve(db, company, data, key, settings, customer_id=None):
     # Expire in a separate transaction before acquiring a new order's stock locks.
     expire(db, company.id)
     db.commit()
@@ -361,6 +361,7 @@ def reserve(db, company, data, key, settings):
         order = Order(
             id=uid(),
             company_id=company.id,
+            customer_id=customer_id,
             location_id=location.id,
             customer_name=data.customer_name,
             email=data.email.lower(),
@@ -413,7 +414,15 @@ def reserve(db, company, data, key, settings):
             "expires_at": order.expires_at.isoformat(),
         }
 
-    return command(db, company.id, digest(data.client_token), key, "checkout", data.model_dump(), apply)
+    return command(
+        db,
+        company.id,
+        digest(data.client_token),
+        key,
+        "checkout",
+        {**data.model_dump(), "customer_id": customer_id},
+        apply,
+    )
 
 
 def confirm_payment(db, order, provider_reference):
