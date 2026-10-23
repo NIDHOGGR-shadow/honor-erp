@@ -43,6 +43,156 @@ import {
 } from "./api";
 import { Badge, Brand, Empty, Field, Modal } from "./ui";
 
+function HandoverForm({
+  order,
+  products,
+  busy,
+  onSubmit,
+}: {
+  order: Order;
+  products: Product[];
+  busy: boolean;
+  onSubmit: (
+    devices: { product_id: string; serials: string[] }[],
+  ) => Promise<void>;
+}) {
+  const [scans, setScans] = useState<Record<string, string>>({});
+  const devices = order.lines.filter((line) =>
+    products.some((p) => p.id === line.product_id && p.tracking === "SERIAL"),
+  );
+  return (
+    <form
+      className="w-full space-y-4 rounded-xl bg-zinc-50 p-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(
+          devices.map((line) => ({
+            product_id: line.product_id,
+            serials: (scans[line.product_id] || "")
+              .split(/[,\n]+/)
+              .map((x) => x.trim())
+              .filter(Boolean),
+          })),
+        );
+      }}
+    >
+      <p className="text-xs leading-6 text-zinc-500">
+        Confirm the goods you are handing over. Only devices at this location
+        that are available or reserved for this order can be issued.
+      </p>
+      {devices.map((line) => (
+        <Field
+          key={line.product_id}
+          label={`${line.name}: scan ${line.quantity} serial / IMEI number${line.quantity === 1 ? "" : "s"}`}
+        >
+          <textarea
+            required
+            className="online-input font-mono"
+            rows={Math.min(4, line.quantity)}
+            maxLength={line.quantity * 102}
+            placeholder="Scan or enter one identifier per line"
+            autoComplete="off"
+            value={scans[line.product_id] || ""}
+            onChange={(e) =>
+              setScans({ ...scans, [line.product_id]: e.target.value })
+            }
+          />
+        </Field>
+      ))}
+      <button className="honor-button" disabled={busy}>
+        <Check size={14} />
+        Confirm handover / collected
+      </button>
+    </form>
+  );
+}
+
+function SerialLookup({ api }: { api: ReturnType<typeof client> }) {
+  const [serial, setSerial] = useState("");
+  const [result, setResult] = useState<{
+    serial: string;
+    product: string;
+    sku: string;
+    status: string;
+    order_id?: string;
+    sales: { order_id: string; customer_name: string; created_at: string }[];
+  } | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <details className="mx-6 mb-5 rounded-xl border border-zinc-200 p-4">
+      <summary className="cursor-pointer text-xs font-medium">
+        Staff device lookup - serial / IMEI
+      </summary>
+      <form
+        className="mt-4 flex flex-wrap items-end gap-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setError("");
+          setResult(null);
+          try {
+            setResult(
+              await api.request(
+                "/stock/serial-search?serial=" +
+                  encodeURIComponent(serial.trim()),
+              ),
+            );
+          } catch (error) {
+            setError((error as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <Field label="Exact serial / IMEI">
+          <input
+            required
+            className="online-input font-mono"
+            value={serial}
+            maxLength={100}
+            onChange={(e) => setSerial(e.target.value)}
+            autoComplete="off"
+          />
+        </Field>
+        <button className="online-secondary" disabled={busy}>
+          {busy ? "Searching…" : "Find device"}
+        </button>
+      </form>
+      {error && (
+        <p role="alert" className="mt-3 text-xs text-red-700">
+          {error}
+        </p>
+      )}
+      {result && (
+        <div
+          role="status"
+          className="mt-4 space-y-2 break-all text-xs leading-6"
+        >
+          <p className="font-semibold">
+            {result.product} · {result.sku}
+          </p>
+          <p>
+            {result.serial} · {result.status.replaceAll("_", " ")}
+          </p>
+          {result.order_id && <p>Current order: {result.order_id}</p>}
+          <p className="text-zinc-500">
+            {result.sales.length
+              ? "Previous confirmed sales:"
+              : "No confirmed sale history."}
+          </p>
+          {result.sales.map((sale) => (
+            <p key={sale.order_id}>
+              {sale.order_id} · {sale.customer_name} ·{" "}
+              {new Date(sale.created_at).toLocaleString()}
+            </p>
+          ))}
+        </div>
+      )}
+    </details>
+  );
+}
+
 type Page =
   | "Overview"
   | "Inventory"
@@ -864,6 +1014,7 @@ export default function Workspace({
                   </button>
                 )}
               </div>
+              {stockStaff && <SerialLookup key={company.id} api={api} />}
               {inventoryTable(shown)}
             </section>
           )}
@@ -1011,18 +1162,37 @@ export default function Workspace({
                         " · Review with the merchant provider; no automatic refund has been issued."}
                     </span>
                     {o.status === "PAID" && (
+                      <HandoverForm
+                        order={o}
+                        products={data.products}
+                        busy={busy}
+                        onSubmit={(devices) =>
+                          act(
+                            () =>
+                              api.command(`/orders/${o.id}/fulfil`, {
+                                devices,
+                              }),
+                            "Handover confirmed; exact devices and stock issue recorded",
+                          )
+                        }
+                      />
+                    )}
+                    {o.receipt_ready && (
                       <button
-                        className="honor-button"
+                        className="online-secondary"
                         disabled={busy}
                         onClick={() =>
                           act(
-                            () => api.command(`/orders/${o.id}/fulfil`),
-                            "Order fulfilled; stock issue recorded",
+                            () =>
+                              api.download(
+                                `/orders/${o.id}/receipt.pdf`,
+                                `honor-receipt-${o.id}.pdf`,
+                              ),
+                            "Receipt downloaded",
                           )
                         }
                       >
-                        <Check size={14} />
-                        Mark collected / fulfilled
+                        Download receipt (PDF)
                       </button>
                     )}
                     {o.status === "FULFILLED" && privileged && (

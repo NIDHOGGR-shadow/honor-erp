@@ -230,7 +230,9 @@ export default function Storefront({
   }
   function updateCart(id: string, quantity: number) {
     if (quantity > 0 && !cart[id] && Object.keys(cart).length >= 50) {
-      setNotice("Checkout supports up to 50 different items. Complete this cart before starting another.");
+      setNotice(
+        "Checkout supports up to 50 different items. Complete this cart before starting another.",
+      );
       return;
     }
     const product = products.find((p) => p.id === id);
@@ -482,6 +484,16 @@ export default function Storefront({
             >
               <span>
                 {line.name} × {line.quantity}
+                {line.sku && (
+                  <span className="mt-1 block text-xs text-zinc-500">
+                    SKU: {line.sku}
+                  </span>
+                )}
+                {!!line.serials?.length && (
+                  <span className="mt-2 block break-all text-xs text-emerald-800">
+                    Serial / IMEI: {line.serials.join(", ")}
+                  </span>
+                )}
               </span>
               <strong>
                 {money(line.price_minor * line.quantity, value.currency)}
@@ -489,6 +501,23 @@ export default function Storefront({
             </li>
           ))}
         </ul>
+        {value.receipt_ready && (
+          <div className="space-y-3">
+            <button
+              className="online-secondary"
+              disabled={busy}
+              onClick={() => run(() => api.receipt(value.id, orderKey))}
+            >
+              Download purchase receipt (PDF)
+            </button>
+            {value.status !== "FULFILLED" && (
+              <p className="text-xs leading-5 text-zinc-500">
+                Your receipt confirms payment. The exact device serial / IMEI is
+                added after staff confirm handover.
+              </p>
+            )}
+          </div>
+        )}
         {value.status === "RESERVED" && (
           <div className="flex flex-wrap gap-3">
             <button
@@ -498,6 +527,20 @@ export default function Storefront({
             >
               Continue to payment <ArrowRight size={16} />
             </button>
+            {!catalogue?.simulation && (
+              <button
+                className="online-secondary"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    await api.verifyPayment(value.id, orderKey);
+                    await loadOrder(value.id, orderKey);
+                  })
+                }
+              >
+                Check payment with provider
+              </button>
+            )}
             <button
               disabled={busy}
               className="online-secondary"
@@ -1016,6 +1059,17 @@ export default function Storefront({
                     <ShieldCheck size={16} className="shrink-0" />
                     Payment details are entered at hosted checkout.
                   </p>
+                  {!!catalogue?.payment_methods?.length && (
+                    <p className="mt-3 text-xs leading-6 text-zinc-500">
+                      Checkout methods:{" "}
+                      {catalogue.payment_methods
+                        .map((x) => x.replaceAll("_", " "))
+                        .join(", ")}
+                      .
+                      {catalogue.payment_methods.includes("bank_transfer") &&
+                        " Transfer from your banking app to the account shown by the payment provider. No saved card is required."}
+                    </p>
+                  )}
                 </aside>
               </div>
             )}

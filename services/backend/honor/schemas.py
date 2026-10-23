@@ -151,6 +151,29 @@ class ReturnInput(StockInput):
     restock: bool = True
 
 
+class FulfilLine(Input):
+    product_id: str = Field(min_length=1, max_length=36)
+    serials: list[str] = Field(min_length=1, max_length=100)
+
+    @field_validator("serials")
+    @classmethod
+    def clean_serials(cls, value):
+        cleaned = [x.strip() for x in value]
+        if any(not x or len(x) > 100 for x in cleaned) or len(set(cleaned)) != len(cleaned):
+            raise ValueError("Scan one unique serial / IMEI for each device")
+        return cleaned
+
+
+class FulfilInput(Input):
+    devices: list[FulfilLine] = Field(default_factory=list, max_length=50)
+
+    @model_validator(mode="after")
+    def unique_products(self):
+        if len({x.product_id for x in self.devices}) != len(self.devices):
+            raise ValueError("Combine device scans for the same product")
+        return self
+
+
 class AdjustmentInput(Input):
     product_id: str = Field(min_length=1, max_length=36)
     location_id: str = Field(min_length=1, max_length=36)

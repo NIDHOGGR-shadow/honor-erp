@@ -38,7 +38,7 @@ No Supabase service-role credential, database password or payment secret belongs
 
 1. Select/create the isolated Honor Supabase project. Novaxis currently has both free project slots occupied. Do not pause/reuse another project or incur an upgrade without the user's selection.
 2. Follow RUNBOOK.md for restricted database access, Supabase Auth, custom SMTP, secrets and backend/worker deployment.
-3. Run `alembic upgrade head`, including migration `0002`, before deploying the new customer account API. Existing guest orders remain unassigned; matching email never grants ownership.
+3. Run `alembic upgrade head`, including migrations `0002` and `0003`, before deploying the customer account, receipt and device-handover APIs. Existing guest orders remain unassigned; matching email never grants ownership. See [purchase flow](PURCHASE_FLOW.md) for bank transfers, exact device scans and private PDF receipts.
 4. Configure exact production frontend origins in `HONOR_ALLOWED_ORIGINS`, set `HONOR_APP_ORIGIN` to the staff host and `HONOR_SHOP_ORIGIN` to the customer host. Provider callbacks and email recovery must use verified HTTPS origins.
 5. Create the verified administrator and an empty company through setup. Add no products or other seed records. Confirm staff invitations/MFA/password recovery and isolated customer accounts.
 6. Configure the selected merchant's provider test environment and verify reservation, retry, payment webhook, expiry, cancellation, late-payment exception and physical collection. Enable real payments only after this acceptance check.
