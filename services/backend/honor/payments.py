@@ -41,6 +41,16 @@ def guard_merchant(settings, company_id):
         raise HTTPException(503, "This company does not have a configured merchant account")
 
 
+def checkout_channels(settings, currency):
+    if settings.payment_provider != "paystack":
+        return []
+    return [
+        x.strip()
+        for x in settings.paystack_channels.split(",")
+        if x.strip() and (x.strip() != "bank_transfer" or currency in {"NGN", "GHS"})
+    ]
+
+
 def order_access(db, order_id, token, customer_id=None):
     order = db.get(Order, order_id)
     owned = order and customer_id and order.customer_id == customer_id
@@ -90,6 +100,7 @@ def begin_payment(db, order_id, token, settings, customer_id=None):
                 "currency": order.currency,
                 "reference": attempt.reference,
                 "callback_url": callback,
+                "channels": checkout_channels(settings, order.currency),
             },
         )["data"]
         attempt.checkout_url, attempt.provider_id = data["authorization_url"], attempt.reference
@@ -189,6 +200,7 @@ def verified_payment(settings, attempt, event=None):
             "amount": data["amount"],
             "currency": data["currency"].upper(),
             "transaction": str(data["id"]),
+            "channel": data.get("channel"),
         }
     session_id = attempt.provider_id or ((event or {}).get("data", {}).get("object", {}).get("id"))
     if not session_id or not session_id.startswith("cs_"):
@@ -225,6 +237,9 @@ def apply_verified(db, settings, attempt_id, verification):
     if attempt.paid_reference and attempt.paid_reference != verification["transaction"]:
         raise HTTPException(409, "An additional transaction requires manual investigation")
     attempt.paid_reference = verification["transaction"]
+    channel = verification.get("channel")
+    if isinstance(channel, str) and len(channel) <= 32:
+        attempt.channel = channel
     confirm_payment(db, order, verification["transaction"])
 
 

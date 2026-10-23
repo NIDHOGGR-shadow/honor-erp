@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
-from . import inventory, payments, schemas as S
+from . import inventory, payments, receipts, schemas as S
 from .config import get_settings
 from .db import database, session
 from .logging import logger
@@ -31,6 +31,8 @@ from .models import (
     Membership,
     Movement,
     Order,
+    OrderLine,
+    PaymentAttempt,
     Outbox,
     Product,
     RateWindow,
@@ -69,6 +71,19 @@ def company_json(company):
     }
 
 
+def receipt_response(db, order):
+    content = receipts.receipt_pdf(receipts.receipt_data(db, order))
+    return Response(
+        content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="honor-receipt-{order.id}.pdf"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 def product_json(product, costs=False):
     result = {
         k: getattr(product, k)
@@ -105,11 +120,22 @@ def order_json(db, order, staff=False):
                 "quantity": x.quantity,
                 "price_minor": x.price_minor,
                 "returned_quantity": x.returned_quantity,
+                "sku": x.sku,
+                "serials": x.serials if order.status == "FULFILLED" else [],
             }
             for x in inventory.lines(db, order)
         ],
     )
     collection = db.get(Location, order.location_id)
+    result["receipt_ready"] = bool(
+        db.scalar(
+            select(PaymentAttempt.id).where(
+                PaymentAttempt.order_id == order.id, PaymentAttempt.paid_reference.is_not(None)
+            )
+        )
+    )
+    result["paid_at"] = order.paid_at.isoformat() if order.paid_at else None
+    result["fulfilled_at"] = order.fulfilled_at.isoformat() if order.fulfilled_at else None
     result["collection_location"] = {"name": collection.name, "address": collection.address}
     if staff:
         result.update(location_id=order.location_id, email=order.email)
@@ -564,6 +590,7 @@ def create_app(settings=None, sessions=None):
     @app.get("/api/v1/stock/serials")
     def serials(request: Request, db: Db, product_id: str, location_id: str):
         scope = Scope(db, request)
+        scope.require("ADMIN", "MANAGER", "STOCK")
         scope.location(location_id)
         inventory.scoped(db, Product, scope.company_id, product_id)
         return [
@@ -579,6 +606,46 @@ def create_app(settings=None, sessions=None):
                 .limit(1000)
             )
         ]
+
+    @app.get("/api/v1/stock/serial-search")
+    def serial_search(request: Request, db: Db, serial: str = Query(min_length=1, max_length=100)):
+        from sqlalchemy.dialects.postgresql import JSONB
+
+        scope = Scope(db, request)
+        scope.require("ADMIN", "MANAGER", "STOCK")
+        unit = db.scalar(
+            scope_query(select(SerialUnit), SerialUnit, scope).where(SerialUnit.serial == serial.strip())
+        )
+        if not unit:
+            raise HTTPException(404, "Device not found in your permitted locations")
+        product = db.get(Product, unit.product_id)
+        history = db.execute(
+            scope_query(
+                select(Order, OrderLine).join(OrderLine, OrderLine.order_id == Order.id), Order, scope
+            )
+            .where(OrderLine.serials.cast(JSONB).contains([unit.serial]))
+            .order_by(Order.created_at.desc())
+            .limit(50)
+        )
+        return {
+            "serial": unit.serial,
+            "product_id": unit.product_id,
+            "product": product.name,
+            "sku": product.sku,
+            "location_id": unit.location_id,
+            "status": unit.status,
+            "order_id": unit.order_id,
+            "sales": [
+                {
+                    "order_id": order.id,
+                    "customer_name": order.customer_name,
+                    "product": line.name,
+                    "status": order.status,
+                    "created_at": order.created_at.isoformat(),
+                }
+                for order, line in history
+            ],
+        }
 
     @app.post("/api/v1/receipts")
     def receive(data: S.StockInput, request: Request, db: Db, idempotency_key: Key = None):
@@ -623,8 +690,15 @@ def create_app(settings=None, sessions=None):
         ]
 
     @app.post("/api/v1/orders/{order_id}/fulfil")
-    def fulfil(order_id: str, request: Request, db: Db, idempotency_key: Key = None):
-        return inventory.fulfil(db, Scope(db, request), order_id, idempotency_key)
+    def fulfil(order_id: str, request: Request, db: Db, data: S.FulfilInput, idempotency_key: Key = None):
+        return inventory.fulfil(db, Scope(db, request), order_id, idempotency_key, data)
+
+    @app.get("/api/v1/orders/{order_id}/receipt.pdf")
+    def staff_receipt(order_id: str, request: Request, db: Db):
+        scope = Scope(db, request)
+        order = inventory.scoped(db, Order, scope.company_id, order_id)
+        scope.location(order.location_id)
+        return receipt_response(db, order)
 
     @app.post("/api/v1/orders/{order_id}/returns")
     def return_item(
@@ -901,6 +975,7 @@ def create_app(settings=None, sessions=None):
                 )
             ],
             "checkout_enabled": enabled,
+            "payment_methods": payments.checkout_channels(settings, company.currency) if enabled else [],
             "simulation": settings.payment_provider == "sandbox",
             "fulfilment": "COLLECTION",
         }
@@ -952,6 +1027,29 @@ def create_app(settings=None, sessions=None):
     def payment(order_id: str, request: Request, db: Db, x_order_key: str = Header(default="")):
         customer_id = current(db, request)[0].id if not x_order_key and request.cookies.get(COOKIE) else None
         return payments.begin_payment(db, order_id, x_order_key, settings, customer_id)
+
+    @app.post("/api/v1/customer/orders/{order_id}/verify-payment")
+    def verify_payment(order_id: str, request: Request, db: Db, x_order_key: str = Header(default="")):
+        customer_id = current(db, request)[0].id if not x_order_key and request.cookies.get(COOKIE) else None
+        order = payments.order_access(db, order_id, x_order_key, customer_id)
+        rate_limit(db, request, "verify-payment", order.id, limit=10, period=60)
+        payments.guard_merchant(settings, order.company_id)
+        attempt = db.scalar(select(PaymentAttempt).where(PaymentAttempt.order_id == order.id))
+        if not attempt:
+            raise HTTPException(409, "Start hosted checkout before checking a payment")
+        if order.payment_status == "UNPAID":
+            if attempt.provider == "sandbox":
+                raise HTTPException(409, "No real payment exists in the development simulator")
+            verified = payments.verified_payment(settings, attempt)
+            payments.apply_verified(db, settings, attempt.id, verified)
+            db.commit()
+        return order_json(db, order)
+
+    @app.get("/api/v1/customer/orders/{order_id}/receipt.pdf")
+    def customer_receipt(order_id: str, request: Request, db: Db, x_order_key: str = Header(default="")):
+        customer_id = current(db, request)[0].id if not x_order_key and request.cookies.get(COOKIE) else None
+        order = payments.order_access(db, order_id, x_order_key, customer_id)
+        return receipt_response(db, order)
 
     @app.post("/api/v1/checkouts/{order_id}/simulate")
     def simulate(order_id: str, db: Db, x_order_key: str = Header(default="")):

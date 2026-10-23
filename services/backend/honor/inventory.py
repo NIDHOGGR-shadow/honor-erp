@@ -2,7 +2,7 @@ import json
 from datetime import timedelta
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert
 
 from .models import (
@@ -368,6 +368,7 @@ def reserve(db, company, data, key, settings, customer_id=None):
             access_hash=digest(data.client_token),
             total_minor=total,
             currency=company.currency,
+            seller_name=company.name,
             expires_at=now() + timedelta(minutes=settings.reservation_minutes),
         )
         db.add(order)
@@ -402,6 +403,8 @@ def reserve(db, company, data, key, settings, customer_id=None):
                     name=product.name,
                     quantity=line.quantity,
                     price_minor=product.price_minor,
+                    sku=product.sku,
+                    tracking=product.tracking,
                 )
             )
         audit(db, company.id, "customer", "order.reserved", order_id=order.id)
@@ -428,6 +431,7 @@ def reserve(db, company, data, key, settings, customer_id=None):
 def confirm_payment(db, order, provider_reference):
     if order.payment_status in {"PAID", "REFUND_REQUIRED", "REFUNDED"}:
         return
+    order.paid_at = now()
     if order.status == "RESERVED" and aware(order.expires_at) <= now():
         release(db, order, "EXPIRED")
         db.flush()
@@ -480,7 +484,7 @@ def confirm_payment(db, order, provider_reference):
     db.add(Outbox(company_id=order.company_id, kind="ORDER_EMAIL", payload={"order_id": order.id}))
 
 
-def fulfil(db, scope, order_id, key):
+def fulfil(db, scope, order_id, key, data):
     scope.require("ADMIN", "MANAGER", "STOCK", "SALES")
 
     def apply():
@@ -488,8 +492,59 @@ def fulfil(db, scope, order_id, key):
         scope.location(order.location_id)
         if order.status != "PAID" or order.payment_status != "PAID":
             raise HTTPException(409, "Only a paid, allocated order can be fulfilled")
-        for line in lines(db, order):
-            stock = balance(db, order.company_id, line.product_id, order.location_id)
+        wanted = lines(db, order)
+        scans = {x.product_id: x.serials for x in data.devices}
+        serial_lines = {x.product_id: x for x in wanted if x.tracking == "SERIAL"}
+        if set(scans) != set(serial_lines) or any(
+            len(scans[pid]) != line.quantity for pid, line in serial_lines.items()
+        ):
+            raise HTTPException(422, "Scan the exact serial / IMEI of every device being handed over")
+        # Stock locks precede serial locks, matching checkout and transfer lock order.
+        stocks = {
+            x.product_id: balance(db, order.company_id, x.product_id, order.location_id) for x in wanted
+        }
+        submitted = [serial for values in scans.values() for serial in values]
+        if len(set(submitted)) != len(submitted):
+            raise HTTPException(422, "A device cannot appear twice in one handover")
+        units = list(
+            db.scalars(
+                select(SerialUnit)
+                .where(
+                    SerialUnit.company_id == order.company_id,
+                    SerialUnit.location_id == order.location_id,
+                    or_(SerialUnit.order_id == order.id, SerialUnit.serial.in_(submitted)),
+                )
+                .order_by(SerialUnit.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        )
+        by_serial = {x.serial: x for x in units}
+        for pid, values in scans.items():
+            for serial in values:
+                unit = by_serial.get(serial)
+                if (
+                    not unit
+                    or unit.product_id != pid
+                    or unit.location_id != order.location_id
+                    or not (
+                        (unit.status == "RESERVED" and unit.order_id == order.id)
+                        or (unit.status == "AVAILABLE" and unit.order_id is None)
+                    )
+                ):
+                    raise HTTPException(
+                        409,
+                        "A scanned device is unavailable, reserved for another order, or at another location",
+                    )
+        for unit in units:
+            if unit.order_id == order.id and unit.status == "RESERVED":
+                unit.status, unit.order_id = "AVAILABLE", None
+        for pid, values in scans.items():
+            serial_lines[pid].serials = list(values)  # Immutable sale snapshot; returns never rewrite it.
+            for serial in values:
+                by_serial[serial].status, by_serial[serial].order_id = "SOLD", order.id
+        for line in wanted:
+            stock = stocks[line.product_id]
             stock.reserved -= line.quantity
             stock.on_hand -= line.quantity
             movement(
@@ -502,21 +557,15 @@ def fulfil(db, scope, order_id, key):
                 "SALE",
                 order.id,
             )
-        for unit in db.scalars(
-            select(SerialUnit)
-            .where(
-                SerialUnit.company_id == order.company_id,
-                SerialUnit.order_id == order.id,
-                SerialUnit.status == "RESERVED",
-            )
-            .with_for_update()
-        ):
-            unit.status = "SOLD"
         order.status = "FULFILLED"
+        order.fulfilled_at = now()
         audit(db, order.company_id, scope.user.id, "order.fulfilled", order_id=order.id)
+        db.add(Outbox(company_id=order.company_id, kind="ORDER_EMAIL", payload={"order_id": order.id}))
         return {"id": order.id, "status": "FULFILLED"}
 
-    return command(db, scope.company_id, scope.user.id, key, "order.fulfil", {"id": order_id}, apply)
+    return command(
+        db, scope.company_id, scope.user.id, key, "order.fulfil", {"id": order_id, **data.model_dump()}, apply
+    )
 
 
 def inspected_return(db, scope, order_id, data, key):

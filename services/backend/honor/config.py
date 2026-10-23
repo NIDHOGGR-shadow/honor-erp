@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     payment_provider: str = "disabled"
     payment_secret: str = ""
     payment_webhook_secret: str = ""
+    paystack_channels: str = "card,bank_transfer"
     merchant_company_id: str = ""
     resend_api_key: str = ""
     email_from: str = ""
@@ -34,6 +35,21 @@ class Settings(BaseSettings):
             raise ValueError("Unsupported identity provider")
         if self.payment_provider not in {"disabled", "sandbox", "paystack", "stripe"}:
             raise ValueError("Unsupported payment provider")
+        allowed = {
+            "card",
+            "bank",
+            "bank_transfer",
+            "ussd",
+            "qr",
+            "mobile_money",
+            "apple_pay",
+            "eft",
+            "capitec_pay",
+            "payattitude",
+        }
+        channels = [x.strip() for x in self.paystack_channels.split(",") if x.strip()]
+        if not channels or len(channels) != len(set(channels)) or set(channels) - allowed:
+            raise ValueError("Configure supported, unique Paystack checkout channels")
         if self.environment != "development":
             if self.auth_provider == "development" or self.payment_provider == "sandbox":
                 raise ValueError(

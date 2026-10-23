@@ -115,6 +115,19 @@ export function customerApi(base: string, slug: string) {
         "POST",
         headers(key),
       ),
+    verifyPayment: (id: string, key = "") =>
+      api.send<Order>(
+        "/customer/orders/" + encodeURIComponent(id) + "/verify-payment",
+        undefined,
+        "POST",
+        headers(key),
+      ),
+    receipt: (id: string, key = "") =>
+      api.download(
+        "/customer/orders/" + encodeURIComponent(id) + "/receipt.pdf",
+        "honor-receipt-" + id + ".pdf",
+        headers(key),
+      ),
     cancel: (id: string, key = "") =>
       api.send(
         "/customer/orders/" + encodeURIComponent(id) + "/cancel",

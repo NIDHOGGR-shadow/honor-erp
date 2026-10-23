@@ -75,7 +75,50 @@ export function client(base = "/api/v1", companyId = "") {
     sessionStorage.removeItem(slot);
     return result;
   }
-  return { request, send, command };
+  async function download(
+    path: string,
+    filename: string,
+    headers: Record<string, string> = {},
+  ) {
+    let response: Response;
+    try {
+      response = await fetch(base.replace(/\/$/, "") + path, {
+        credentials: "include",
+        headers: {
+          ...(companyId ? { "X-Company-Id": companyId } : {}),
+          ...headers,
+        },
+      });
+    } catch {
+      throw new ApiError(
+        0,
+        "Honor is unavailable right now. Please try again.",
+      );
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new ApiError(
+        response.status,
+        typeof data.detail === "string"
+          ? data.detail
+          : "Receipt could not be downloaded.",
+      );
+    }
+    if (!response.headers.get("Content-Type")?.includes("application/pdf"))
+      throw new ApiError(
+        503,
+        "The receipt service returned an unexpected response.",
+      );
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  return { request, send, command, download };
 }
 
 export type Company = {
@@ -131,6 +174,9 @@ export type Order = {
   location_id?: string;
   expires_at: string;
   created_at: string;
+  paid_at?: string;
+  fulfilled_at?: string;
+  receipt_ready?: boolean;
   collection_location?: { name: string; address: string };
   lines: {
     product_id: string;
@@ -138,6 +184,8 @@ export type Order = {
     quantity: number;
     price_minor: number;
     returned_quantity: number;
+    sku?: string;
+    serials?: string[];
   }[];
   serials?: { product_id: string; serial: string; status: string }[];
 };
@@ -156,6 +204,7 @@ export type Catalogue = {
   checkout_enabled: boolean;
   simulation: boolean;
   fulfilment: string;
+  payment_methods?: string[];
   locations?: { id: string; name: string; address: string }[];
 };
 export const money = (minor: number, currency: string) =>

@@ -215,6 +215,9 @@ class Order(Base):
     status: Mapped[str] = mapped_column(String(24), default="RESERVED")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fulfilled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    seller_name: Mapped[str] = mapped_column(String(120), default="")
     __table_args__ = (
         UniqueConstraint("company_id", "id"),
         ForeignKeyConstraint(["company_id", "location_id"], ["locations.company_id", "locations.id"]),
@@ -231,6 +234,9 @@ class OrderLine(Base):
     quantity: Mapped[int] = mapped_column(Integer)
     price_minor: Mapped[int] = mapped_column(Integer)
     returned_quantity: Mapped[int] = mapped_column(Integer, default=0)
+    sku: Mapped[str] = mapped_column(String(80), default="")
+    tracking: Mapped[str] = mapped_column(String(16), default="QUANTITY")
+    serials: Mapped[list] = mapped_column(JSON, default=list)
     __table_args__ = (
         ForeignKeyConstraint(["company_id", "order_id"], ["orders.company_id", "orders.id"]),
         ForeignKeyConstraint(["company_id", "product_id"], ["products.company_id", "products.id"]),
@@ -250,6 +256,7 @@ class PaymentAttempt(Base):
     checkout_url: Mapped[str | None] = mapped_column(Text)
     paid_reference: Mapped[str | None] = mapped_column(String(160), unique=True)
     provider_id: Mapped[str | None] = mapped_column(String(160))
+    channel: Mapped[str | None] = mapped_column(String(32))
 
 
 class ProviderEvent(Base):

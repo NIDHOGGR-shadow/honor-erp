@@ -20,6 +20,8 @@ from conftest import PASSWORD, checkout, paid_order
 
 
 def post(env, path, body=None, key=None, **headers):
+    if path.endswith("/fulfil") and body is None:
+        body = {"devices": [{"product_id": env["phone"], "serials": ["TEST-IMEI-001"]}]}
     return env["client"].post(
         "/api/v1" + path, json=body, headers={"Idempotency-Key": key or str(uuid4()), **headers}
     )
