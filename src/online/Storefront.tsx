@@ -598,7 +598,7 @@ export default function Storefront({
         Collection from the store · Stock is held after a successful reservation
       </div>
       <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-8 gap-y-4 px-5 py-5 sm:px-8">
+        <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto] items-center gap-x-6 gap-y-4 px-5 py-5 sm:px-8 lg:grid-cols-[auto_1fr_auto] lg:gap-x-8">
           <a
             href={href("shop")}
             onClick={(e) => link(e, "shop")}
@@ -608,23 +608,35 @@ export default function Storefront({
           </a>
           <nav
             aria-label="Customer navigation"
-            className="order-3 flex w-full flex-wrap gap-x-6 gap-y-2 border-t border-zinc-100 pt-3 md:order-none md:w-auto md:border-0 md:p-0"
+            className="order-3 col-span-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-zinc-100 pt-3 sm:gap-x-6 lg:order-none lg:col-span-1 lg:border-0 lg:p-0"
           >
             {nav("shop", "Shop")}
             {nav("locations", "Collection")}
             {nav("account", "Your orders")}
-            {!customer && nav("login", "Sign in")}
+            <a
+              href={href("cart")}
+              onClick={(e) => link(e, "cart")}
+              className="online-secondary ml-auto"
+              aria-label={`View cart, ${count} items`}
+            >
+              <ShoppingBag size={18} />
+              <span>Cart</span>
+              <span className="tabular-nums">{count}</span>
+            </a>
           </nav>
-          <a
-            href={href("cart")}
-            onClick={(e) => link(e, "cart")}
-            className="online-secondary"
-            aria-label={`View cart, ${count} items`}
-          >
-            <ShoppingBag size={18} />
-            <span>Cart</span>
-            <span className="tabular-nums">{count}</span>
-          </a>
+          {!customer && (
+            <div className="flex items-center justify-end gap-3 sm:gap-4">
+              {nav("login", "Sign in")}
+              <a
+                href={href("signup")}
+                onClick={(e) => link(e, "signup")}
+                className="honor-button whitespace-nowrap"
+                aria-current={activeView === "signup" ? "page" : undefined}
+              >
+                Sign up
+              </a>
+            </div>
+          )}
         </div>
       </header>
       <main
