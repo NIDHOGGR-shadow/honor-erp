@@ -1,0 +1,5 @@
+{
+  "name": "Honor",
+  "description": "Inventory control for company teams: serialised stock, receiving, transfers, stock history and replenishment.",
+  "requestFramePermissions": []
+}

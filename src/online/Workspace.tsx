@@ -1,0 +1,2203 @@
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Activity,
+  ArrowDownToLine,
+  ArrowRight,
+  ArrowUpRight,
+  Boxes,
+  Check,
+  ChevronDown,
+  CircleHelp,
+  ClipboardList,
+  ExternalLink,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings,
+  ShieldCheck,
+  ShoppingBag,
+  Truck,
+  Users,
+  X,
+} from "lucide-react";
+import {
+  ApiError,
+  Balance,
+  client,
+  Company,
+  Location,
+  Me,
+  money,
+  Order,
+  Product,
+} from "./api";
+import { Badge, Brand, Empty, Field, Modal } from "./ui";
+
+type Page =
+  | "Overview"
+  | "Inventory"
+  | "Receive stock"
+  | "Transfers"
+  | "Orders"
+  | "People & access"
+  | "Activity"
+  | "Security"
+  | "Company";
+type Bundle = {
+  locations: Location[];
+  products: Product[];
+  balances: Balance[];
+  orders: Order[];
+  movements: any[];
+  transfers: any[];
+  team: any[];
+  audit: any[];
+  jobs: any[];
+  destinations: Location[];
+};
+const blank: Bundle = {
+  locations: [],
+  products: [],
+  balances: [],
+  orders: [],
+  movements: [],
+  transfers: [],
+  team: [],
+  audit: [],
+  jobs: [],
+  destinations: [],
+};
+const pages: {
+  label: Page;
+  icon: React.ComponentType<any>;
+  admin?: boolean;
+}[] = [
+  { label: "Overview", icon: LayoutDashboard },
+  { label: "Inventory", icon: Boxes },
+  { label: "Receive stock", icon: ArrowDownToLine },
+  { label: "Transfers", icon: Truck },
+  { label: "Orders", icon: ShoppingBag },
+  { label: "People & access", icon: Users, admin: true },
+  { label: "Activity", icon: Activity },
+  { label: "Security", icon: ShieldCheck },
+  { label: "Company", icon: Settings, admin: true },
+];
+
+export default function Workspace({
+  apiBase = "/api/v1",
+}: {
+  apiBase?: string;
+}) {
+  const publicApi = useMemo(() => client(apiBase), [apiBase]);
+  const [me, setMe] = useState<Me | null>(null);
+  const [companyId, setCompanyId] = useState("");
+  const [data, setData] = useState<Bundle>(blank);
+  const [config, setConfig] = useState<any>(null);
+  const [page, setPage] = useState<Page>("Overview");
+  const [location, setLocation] = useState("ALL");
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [mobile, setMobile] = useState(false);
+  const [modal, setModal] = useState<{ kind: string; record?: any } | null>(
+    null,
+  );
+  const [enrolment, setEnrolment] = useState<any>(null);
+  const [invitationLink, setInvitationLink] = useState("");
+  const version = useRef(0);
+  const company = me?.companies.find((c) => c.id === companyId);
+  const api = useMemo(() => client(apiBase, companyId), [apiBase, companyId]);
+  const privileged = company?.role === "ADMIN" || company?.role === "MANAGER";
+  const stockStaff = privileged || company?.role === "STOCK";
+
+  const refresh = useCallback(async () => {
+    const generation = ++version.current;
+    try {
+      const [profile, conf] = await Promise.all([
+        publicApi.request<Me>("/me"),
+        publicApi.request("/config"),
+      ]);
+      if (generation !== version.current) return;
+      setMe(profile);
+      setConfig(conf);
+      const selected =
+        profile.companies.find((c) => c.id === companyId) ||
+        profile.companies[0];
+      if (!selected) {
+        setCompanyId("");
+        setData(blank);
+        return;
+      }
+      if (selected.id !== companyId) {
+        setCompanyId(selected.id);
+        return;
+      }
+      const protectedApi = client(apiBase, selected.id);
+      const paths = [
+        "/locations",
+        "/products",
+        "/stock/balances",
+        "/orders",
+        "/stock/movements",
+        "/transfers",
+      ];
+      const responses = await Promise.all(
+        paths.map((path) => protectedApi.request(path)),
+      );
+      const [team, audit, jobs, destinations] = await Promise.all([
+        selected.role === "ADMIN" ? protectedApi.request("/team") : [],
+        selected.role === "ADMIN" ? protectedApi.request("/audit") : [],
+        selected.role === "ADMIN" ? protectedApi.request("/jobs") : [],
+        selected.role !== "SALES"
+          ? protectedApi.request("/transfer-destinations")
+          : [],
+      ]);
+      if (generation !== version.current) return;
+      setData({
+        locations: responses[0],
+        products: responses[1],
+        balances: responses[2],
+        orders: responses[3],
+        movements: responses[4],
+        transfers: responses[5],
+        team,
+        audit,
+        jobs,
+        destinations,
+      });
+    } catch (e) {
+      if (generation !== version.current) return;
+      if (e instanceof ApiError && e.status === 401) {
+        setMe(null);
+        setData(blank);
+      } else setError((e as Error).message);
+      publicApi
+        .request("/config")
+        .then(setConfig)
+        .catch(() => {});
+    } finally {
+      if (generation === version.current) setLoading(false);
+    }
+  }, [publicApi, companyId, apiBase]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+  useEffect(() => {
+    if (!me) return;
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible" && !busy) refresh();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [refresh, !!me, busy]);
+  useEffect(() => {
+    const tokens = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    if (tokens.has("access_token") && tokens.has("refresh_token")) {
+      const access = tokens.get("access_token"),
+        token = tokens.get("refresh_token");
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname + window.location.search,
+      );
+      publicApi
+        .send("/auth/exchange", { access_token: access, refresh_token: token })
+        .then(() => refresh())
+        .catch((e) => setError(e.message));
+    }
+  }, [publicApi]);
+  async function act(operation: () => Promise<any>, success = "Changes saved") {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await operation();
+      setModal(null);
+      setNotice(success);
+      await refresh();
+      return result;
+    } catch (e) {
+      setError((e as Error).message);
+      if (e instanceof ApiError && e.status === 401) setMe(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function formAction(
+    event: React.FormEvent<HTMLFormElement>,
+    callback: (f: FormData) => Promise<any>,
+    success?: string,
+  ) {
+    event.preventDefault();
+    const fields = new FormData(event.currentTarget);
+    await act(() => callback(fields), success);
+  }
+  function go(next: Page) {
+    setPage(next);
+    setMobile(false);
+    setQuery("");
+    setNotice("");
+  }
+  if (loading)
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#f7f8fa]">
+        <div className="space-y-6 text-center">
+          <Brand />
+          <p className="text-xs text-zinc-400">Opening your workspace…</p>
+        </div>
+      </div>
+    );
+  if (!me)
+    return (
+      <SignIn
+        api={publicApi}
+        refresh={refresh}
+        development={config?.development}
+        error={error}
+        setError={setError}
+      />
+    );
+  if (!company)
+    return (
+      <div className="online-app grid min-h-screen place-items-center bg-[#f7f8fa] p-6">
+        <div className="w-full max-w-md space-y-7 rounded-2xl border border-zinc-200 bg-white p-8">
+          <Brand />
+          {error && (
+            <p role="alert" className="text-sm text-red-700">
+              {error}
+            </p>
+          )}
+          <h1 className="text-xl font-semibold">Your workspace starts here.</h1>
+          <p className="text-sm leading-6 text-zinc-500">
+            Accept your company invitation, or create a workspace for a business
+            you administer.
+          </p>
+          {new URLSearchParams(window.location.search).get("invite") && (
+            <button
+              disabled={busy}
+              className="honor-button w-full"
+              onClick={() =>
+                act(
+                  () =>
+                    publicApi.send("/invitations/accept", {
+                      token: new URLSearchParams(window.location.search).get(
+                        "invite",
+                      ),
+                    }),
+                  "Invitation accepted",
+                )
+              }
+            >
+              Accept company invitation
+            </button>
+          )}
+          <CompanyForm
+            onSubmit={(e) =>
+              formAction(
+                e,
+                (f) => publicApi.send("/companies", Object.fromEntries(f)),
+                "Company created",
+              )
+            }
+            busy={busy}
+          />
+          <button
+            className="text-xs text-zinc-500"
+            onClick={() => act(() => publicApi.send("/auth/logout"))}
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  const balances = data.balances.filter(
+    (b) => location === "ALL" || b.location_id === location,
+  );
+  const orders = data.orders.filter(
+    (o) => location === "ALL" || o.location_id === location,
+  );
+  const movements = data.movements.filter(
+    (m) => location === "ALL" || m.location_id === location,
+  );
+  const onHand = balances.reduce((n, b) => n + b.on_hand, 0);
+  const reserved = balances.reduce((n, b) => n + b.reserved, 0);
+  const available = onHand - reserved;
+  const productBalance = (id: string) =>
+    balances
+      .filter((b) => b.product_id === id)
+      .reduce(
+        (s, b) => ({
+          on_hand: s.on_hand + b.on_hand,
+          reserved: s.reserved + b.reserved,
+          available: s.available + b.available,
+        }),
+        { on_hand: 0, reserved: 0, available: 0 },
+      );
+  const low = data.products.filter(
+    (p) => productBalance(p.id).available <= p.reorder_point,
+  );
+  const shown = data.products.filter((p) =>
+    `${p.name} ${p.sku} ${p.category}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+  const productName = (id: string) =>
+    data.products.find((p) => p.id === id)?.name || "Product";
+  const locationName = (id: string) =>
+    [...data.locations, ...data.destinations].find((l) => l.id === id)?.name ||
+    "Location";
+  const metric = (
+    label: string,
+    value: string | number,
+    hint: string,
+    Icon: any,
+    warm = false,
+  ) => (
+    <div className="rounded-2xl border border-zinc-200/70 bg-white p-5 sm:p-6">
+      <div className="flex items-center justify-between text-xs text-zinc-500">
+        <span>{label}</span>
+        <Icon
+          size={16}
+          className={warm ? "text-amber-600" : "text-emerald-700"}
+        />
+      </div>
+      <p className="mt-5 text-3xl font-semibold tracking-tight">{value}</p>
+      <p className="mt-2 text-[11px] text-zinc-400">{hint}</p>
+    </div>
+  );
+  const inventoryTable = (products: Product[]) => (
+    <div className="overflow-x-auto">
+      <table className="online-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>On hand</th>
+            <th>Reserved</th>
+            <th>Available</th>
+            <th>Status</th>
+            <th>Storefront</th>
+            {privileged && <th />}
+          </tr>
+        </thead>
+        <tbody>
+          {products.map((p) => {
+            const s = productBalance(p.id);
+            return (
+              <tr key={p.id}>
+                <td>
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f0f3ee] text-emerald-800">
+                      <Package size={18} strokeWidth={1.5} />
+                    </span>
+                    <span>
+                      <span className="block font-medium text-zinc-800">
+                        {p.name}
+                      </span>
+                      <span className="mt-1 block text-[10px] text-zinc-400">
+                        {p.sku} ·{" "}
+                        {p.tracking === "SERIAL"
+                          ? "Serial tracked"
+                          : p.category}
+                      </span>
+                    </span>
+                  </div>
+                </td>
+                <td>{s.on_hand}</td>
+                <td className="text-zinc-400">{s.reserved}</td>
+                <td className="font-semibold">{s.available}</td>
+                <td>
+                  <Badge warning={s.available <= p.reorder_point}>
+                    {s.available === 0
+                      ? "Out of stock"
+                      : s.available <= p.reorder_point
+                        ? "Replenish"
+                        : "Healthy"}
+                  </Badge>
+                </td>
+                <td className="text-zinc-400">
+                  {p.published ? "Published" : "Hidden"}
+                </td>
+                {privileged && (
+                  <td>
+                    <button
+                      className="text-xs text-emerald-700"
+                      onClick={() => setModal({ kind: "product", record: p })}
+                    >
+                      Edit
+                    </button>
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {!products.length && (
+        <Empty
+          title="No products yet"
+          text="Add your catalogue, then receive the stock you have checked."
+        />
+      )}
+    </div>
+  );
+  return (
+    <div className="online-app min-h-screen bg-[#f7f8fa] text-zinc-900">
+      {mobile && (
+        <button
+          aria-label="Close navigation"
+          onClick={() => setMobile(false)}
+          className="fixed inset-0 z-30 bg-zinc-950/40 md:hidden"
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-[236px] flex-col bg-[#132b25] px-4 py-7 text-white transition-transform ${mobile ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
+      >
+        <div className="px-3">
+          <Brand />
+        </div>
+        <div className="mt-10 px-3 text-[9px] uppercase tracking-[.18em] text-emerald-100/35">
+          Your workspace
+        </div>
+        <nav className="mt-3 space-y-1">
+          {pages
+            .filter(
+              (p) =>
+                (!p.admin || company.role === "ADMIN") &&
+                (p.label !== "Receive stock" || stockStaff),
+            )
+            .map((p) => (
+              <button
+                key={p.label}
+                onClick={() => go(p.label)}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-xs ${page === p.label ? "bg-white/10 text-white" : "text-emerald-100/55 hover:bg-white/5 hover:text-white"}`}
+              >
+                <p.icon size={17} strokeWidth={1.6} />
+                {p.label}
+                {p.label === "Orders" &&
+                  orders.some((o) => o.status === "PAID") && (
+                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  )}
+              </button>
+            ))}
+        </nav>
+        <a
+          href={"/shop/" + company.slug}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-7 flex items-center gap-3 rounded-lg border border-white/10 px-3 py-3 text-xs text-emerald-100/70"
+        >
+          <ExternalLink size={16} />
+          Open your store
+          <ArrowUpRight size={13} className="ml-auto" />
+        </a>
+        <div className="mt-auto rounded-xl border border-white/10 p-3">
+          <p className="text-xs font-medium">{me.name}</p>
+          <p className="mt-1 text-[10px] text-emerald-100/40">
+            {company.role.toLowerCase()} · company access
+          </p>
+          <button
+            disabled={busy}
+            onClick={() =>
+              act(() => publicApi.send("/auth/logout"), "Signed out")
+            }
+            className="mt-4 flex items-center gap-2 text-[10px] text-emerald-100/60"
+          >
+            <LogOut size={13} />
+            Sign out
+          </button>
+        </div>
+      </aside>
+      <div className="md:ml-[236px]">
+        <header className="flex min-h-[78px] flex-wrap items-center justify-between gap-3 border-b border-zinc-200/70 bg-white px-5 sm:px-8">
+          <div className="flex items-center gap-3">
+            <button
+              className="md:hidden"
+              aria-label="Open navigation"
+              onClick={() => setMobile(true)}
+            >
+              <Menu size={20} />
+            </button>
+            <select
+              aria-label="Company"
+              className="max-w-48 bg-transparent text-xs font-semibold"
+              value={companyId}
+              onChange={(e) => {
+                setCompanyId(e.target.value);
+                setData(blank);
+                setLocation("ALL");
+                setPage("Overview");
+              }}
+            >
+              {me.companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <span className="hidden h-4 w-px bg-zinc-200 sm:block" />
+            <span className="hidden text-xs text-zinc-400 sm:block">
+              {page}
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-xs text-zinc-500">
+              <span className="hidden sm:inline">Location</span>
+              <select
+                className="max-w-40 rounded-lg border border-zinc-200 bg-white p-2.5"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              >
+                <option value="ALL">All permitted locations</option>
+                {data.locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              aria-label="Refresh workspace"
+              onClick={() => refresh()}
+              className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-50"
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
+        </header>
+        <main className="mx-auto max-w-[1440px] p-5 sm:p-8 lg:p-10">
+          <div className="mb-7 flex flex-wrap items-center justify-between gap-3 text-[10px] text-zinc-400">
+            <span className="flex items-center gap-2">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${config?.development ? "bg-amber-500" : "bg-emerald-500"}`}
+              />
+              {config?.development
+                ? "Development workspace · fictional demonstration records"
+                : "Shared company workspace"}
+            </span>
+            <span>Stock updates from your company records</span>
+          </div>
+          {error && (
+            <div
+              role="alert"
+              className="mb-6 flex items-start justify-between gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs leading-6 text-red-800"
+            >
+              <span>{error}</span>
+              <button aria-label="Dismiss error" onClick={() => setError("")}>
+                <X size={15} />
+              </button>
+            </div>
+          )}
+          {notice && (
+            <div
+              role="status"
+              className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs text-emerald-800"
+            >
+              <span>{notice}</span>
+              <button
+                aria-label="Dismiss message"
+                onClick={() => setNotice("")}
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
+          {invitationLink && config?.development && (
+            <div className="mb-6 rounded-xl border border-amber-100 bg-amber-50 p-4 text-xs">
+              <a className="text-amber-900 underline" href={invitationLink}>
+                Open development invitation
+              </a>
+              <p className="mt-2 text-amber-800">
+                Sign in with the invited email. This link does not confirm email
+                delivery.
+              </p>
+            </div>
+          )}
+          {new URLSearchParams(window.location.search).has("invite") && (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-emerald-50 p-4 text-xs">
+              <span>You have a company invitation to accept.</span>
+              <button
+                className="text-emerald-800 underline"
+                disabled={busy}
+                onClick={() =>
+                  act(async () => {
+                    const result = await publicApi.send("/invitations/accept", {
+                      token: new URLSearchParams(window.location.search).get(
+                        "invite",
+                      ),
+                    });
+                    window.history.replaceState(
+                      {},
+                      "",
+                      window.location.pathname,
+                    );
+                    setCompanyId(result.company_id);
+                  }, "Invitation accepted")
+                }
+              >
+                Accept invitation
+              </button>
+            </div>
+          )}
+          <div className="mb-8 flex flex-wrap items-start justify-between gap-5">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[.18em] text-emerald-700">
+                {page === "Overview"
+                  ? "A clear view of your stock"
+                  : "Company workspace"}
+              </p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-[28px]">
+                {page === "Overview" ? "Inventory overview" : page}
+              </h1>
+              <p className="mt-3 max-w-2xl text-xs leading-6 text-zinc-500">
+                {
+                  {
+                    Overview:
+                      "Know what is available, what needs attention and what is ready to move.",
+                    Inventory:
+                      "Your catalogue and available stock across permitted locations.",
+                    "Receive stock":
+                      "Check the goods in front of you, then record what actually arrived.",
+                    Transfers:
+                      "Dispatch from one location. Receive when the goods arrive at the other.",
+                    Orders:
+                      "Online orders, verified payments and stock ready for collection.",
+                    "People & access":
+                      "Give each person the access they need. Your company stays in control.",
+                    Activity:
+                      "A traceable record of the stock that moved and the people who changed it.",
+                    Security:
+                      "Manage your password, authenticator and sensitive-action verification.",
+                    Company:
+                      "Manage your company locations and see outstanding delivery jobs.",
+                  }[page]
+                }
+              </p>
+            </div>
+            {stockStaff && ["Overview", "Inventory"].includes(page) && (
+              <div className="flex gap-2">
+                {privileged && (
+                  <button
+                    className="online-secondary"
+                    onClick={() => setModal({ kind: "product" })}
+                  >
+                    <Plus size={14} />
+                    Add product
+                  </button>
+                )}
+                <button
+                  className="honor-button"
+                  onClick={() => go("Receive stock")}
+                >
+                  <Plus size={15} />
+                  Receive stock
+                </button>
+              </div>
+            )}
+            {page === "People & access" && company.role === "ADMIN" && (
+              <button
+                className="honor-button"
+                onClick={() => setModal({ kind: "invite" })}
+              >
+                <Plus size={15} />
+                Invite a person
+              </button>
+            )}
+            {page === "Transfers" && stockStaff && (
+              <button
+                className="honor-button"
+                onClick={() => setModal({ kind: "transfer" })}
+              >
+                <Plus size={15} />
+                Dispatch transfer
+              </button>
+            )}
+          </div>
+          {page === "Overview" && (
+            <>
+              <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {metric(
+                  "Available units",
+                  available.toLocaleString(),
+                  `${onHand} on hand · ${reserved} reserved`,
+                  Boxes,
+                )}
+                {metric(
+                  "Products to replenish",
+                  low.length,
+                  "At or below their reorder point",
+                  ArrowDownToLine,
+                  low.length > 0,
+                )}
+                {metric(
+                  "Ready to fulfil",
+                  orders.filter((o) => o.status === "PAID").length,
+                  "Paid orders with allocated stock",
+                  ShoppingBag,
+                )}
+                {metric(
+                  "Incoming transfers",
+                  data.transfers.filter(
+                    (t) =>
+                      t.status === "DISPATCHED" &&
+                      (location === "ALL" || t.destination_id === location),
+                  ).length,
+                  "Receive after checking delivery",
+                  Truck,
+                )}
+              </div>
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+                <section className="online-panel">
+                  <div className="flex items-center justify-between px-6 py-5">
+                    <div>
+                      <h2 className="text-sm font-semibold">
+                        Stock that needs attention
+                      </h2>
+                      <p className="mt-2 text-[11px] text-zinc-400">
+                        A short list to plan your next receipt.
+                      </p>
+                    </div>
+                    <button
+                      className="text-xs text-emerald-700"
+                      onClick={() => go("Inventory")}
+                    >
+                      View inventory
+                      <ArrowRight size={13} className="ml-1 inline" />
+                    </button>
+                  </div>
+                  {inventoryTable(low.slice(0, 8))}
+                </section>
+                <section className="online-panel p-6">
+                  <p className="text-sm font-semibold">Today's operations</p>
+                  <div className="mt-6 space-y-6">
+                    {[
+                      {
+                        label: "Record a delivery",
+                        sub: "Receive stock you have checked",
+                        icon: ArrowDownToLine,
+                        page: "Receive stock" as Page,
+                        allowed: stockStaff,
+                      },
+                      {
+                        label: "Prepare customer orders",
+                        sub: "Review payment and fulfilment",
+                        icon: ShoppingBag,
+                        page: "Orders" as Page,
+                        allowed: true,
+                      },
+                      {
+                        label: "Check stock movements",
+                        sub: "Follow the complete history",
+                        icon: Activity,
+                        page: "Activity" as Page,
+                        allowed: true,
+                      },
+                    ]
+                      .filter((x) => x.allowed)
+                      .map((x) => (
+                        <button
+                          key={x.label}
+                          onClick={() => go(x.page)}
+                          className="flex w-full items-start gap-3 text-left"
+                        >
+                          <span className="rounded-lg bg-emerald-50 p-2 text-emerald-800">
+                            <x.icon size={16} />
+                          </span>
+                          <span>
+                            <span className="block text-xs font-medium">
+                              {x.label}
+                            </span>
+                            <span className="mt-1 block text-[10px] leading-5 text-zinc-400">
+                              {x.sub}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                  <div className="mt-8 border-t border-zinc-100 pt-5">
+                    <p className="text-[10px] uppercase tracking-wider text-zinc-400">
+                      Replenishment
+                    </p>
+                    <p className="mt-3 text-xs leading-6 text-zinc-500">
+                      Current alerts use your reorder points. Forecasting will
+                      be introduced after there is enough sales history to
+                      evaluate it.
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </>
+          )}
+          {page === "Inventory" && (
+            <section className="online-panel">
+              <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
+                <span className="text-xs font-medium">
+                  {data.products.length} products
+                </span>
+                <label className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2">
+                  <Search size={14} className="text-zinc-400" />
+                  <input
+                    aria-label="Search inventory"
+                    placeholder="Search name or SKU"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="bg-transparent text-xs outline-none"
+                  />
+                </label>
+                {privileged && (
+                  <button
+                    className="text-xs text-emerald-700"
+                    onClick={() => setModal({ kind: "adjustment" })}
+                  >
+                    Record an adjustment
+                  </button>
+                )}
+              </div>
+              {inventoryTable(shown)}
+            </section>
+          )}
+          {page === "Receive stock" &&
+            (stockStaff ? (
+              <section className="online-panel max-w-2xl p-6 sm:p-8">
+                <OperationForm
+                  kind="receipt"
+                  data={data}
+                  busy={busy}
+                  onSubmit={(e) =>
+                    formAction(
+                      e,
+                      (f) => api.command("/receipts", stockBody(f)),
+                      "Stock received and movement recorded",
+                    )
+                  }
+                />
+              </section>
+            ) : (
+              <Empty
+                title="This action is restricted"
+                text="Your administrator controls stock-receiving access."
+              />
+            ))}
+          {page === "Transfers" && (
+            <section className="online-panel">
+              <div className="overflow-x-auto">
+                <table className="online-table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Route</th>
+                      <th>Units</th>
+                      <th>Status</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.transfers.map((t) => (
+                      <tr key={t.id}>
+                        <td className="font-medium">
+                          {productName(t.product_id)}
+                        </td>
+                        <td>
+                          {locationName(t.source_id)} →{" "}
+                          {locationName(t.destination_id)}
+                        </td>
+                        <td>{t.quantity}</td>
+                        <td>
+                          <Badge warning={t.status === "DISPATCHED"}>
+                            {t.status === "DISPATCHED"
+                              ? "In transit"
+                              : "Received"}
+                          </Badge>
+                        </td>
+                        <td>
+                          {stockStaff &&
+                            t.status === "DISPATCHED" &&
+                            data.locations.some(
+                              (l) => l.id === t.destination_id,
+                            ) && (
+                              <button
+                                disabled={busy}
+                                onClick={() =>
+                                  act(
+                                    () =>
+                                      api.command(`/transfers/${t.id}/receive`),
+                                    "Transfer received",
+                                  )
+                                }
+                                className="text-emerald-700"
+                              >
+                                Receive all units
+                              </button>
+                            )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {!data.transfers.length && (
+                <Empty
+                  title="No transfers yet"
+                  text="Dispatched goods stay in transit until the destination records receipt."
+                />
+              )}
+            </section>
+          )}
+          {page === "Orders" && (
+            <div className="space-y-4">
+              {orders.map((o) => (
+                <section key={o.id} className="online-panel p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] text-zinc-400">
+                        {o.id.slice(0, 8).toUpperCase()} ·{" "}
+                        {new Date(o.created_at).toLocaleString()}
+                      </p>
+                      <h2 className="mt-2 text-sm font-semibold">
+                        {o.customer_name}
+                      </h2>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {o.email} · {locationName(o.location_id!)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <Badge
+                        warning={["EXCEPTION", "EXPIRED", "CANCELLED"].includes(
+                          o.status,
+                        )}
+                      >
+                        {o.status.replaceAll("_", " ")}
+                      </Badge>
+                      <p className="mt-3 text-sm font-semibold">
+                        {money(o.total_minor, o.currency)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-5 border-t border-zinc-100 pt-4">
+                    {o.lines.map((l) => (
+                      <p
+                        key={l.product_id}
+                        className="text-xs leading-7 text-zinc-500"
+                      >
+                        {l.quantity} × {l.name}
+                        {l.returned_quantity
+                          ? ` · ${l.returned_quantity} returned`
+                          : ""}
+                      </p>
+                    ))}
+                    {o.serials?.length ? (
+                      <p className="mt-2 text-[10px] text-zinc-400">
+                        Serials: {o.serials.map((s) => s.serial).join(", ")}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <span
+                      className={`text-[10px] ${o.payment_status === "REFUND_REQUIRED" ? "text-amber-800" : "text-zinc-400"}`}
+                    >
+                      Payment: {o.payment_status.replaceAll("_", " ")}
+                      {o.payment_status === "REFUND_REQUIRED" &&
+                        " · Review with the merchant provider; no automatic refund has been issued."}
+                    </span>
+                    {o.status === "PAID" && (
+                      <button
+                        className="honor-button"
+                        disabled={busy}
+                        onClick={() =>
+                          act(
+                            () => api.command(`/orders/${o.id}/fulfil`),
+                            "Order fulfilled; stock issue recorded",
+                          )
+                        }
+                      >
+                        <Check size={14} />
+                        Mark collected / fulfilled
+                      </button>
+                    )}
+                    {o.status === "FULFILLED" && privileged && (
+                      <button
+                        className="online-secondary"
+                        onClick={() => setModal({ kind: "return", record: o })}
+                      >
+                        Record inspected return
+                      </button>
+                    )}
+                  </div>
+                </section>
+              ))}
+              {!orders.length && (
+                <section className="online-panel">
+                  <Empty
+                    title="Ready for your first order"
+                    text="Orders from your online store will appear here with their payment and stock status."
+                  />
+                </section>
+              )}
+            </div>
+          )}
+          {page === "People & access" && company.role === "ADMIN" && (
+            <section className="online-panel">
+              <div className="overflow-x-auto">
+                <table className="online-table">
+                  <thead>
+                    <tr>
+                      <th>Person</th>
+                      <th>Role</th>
+                      <th>Access</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.team.map((m) => (
+                      <tr key={m.id}>
+                        <td>
+                          <p className="font-medium">
+                            {m.name}
+                            {m.id === me.id ? " (you)" : ""}
+                          </p>
+                          <p className="mt-1 text-[10px] text-zinc-400">
+                            {m.email}
+                          </p>
+                        </td>
+                        <td>{m.role.toLowerCase()}</td>
+                        <td>
+                          {m.role === "ADMIN"
+                            ? "All company locations"
+                            : m.location_ids.map(locationName).join(", ")}
+                        </td>
+                        <td>
+                          <Badge warning={!m.active}>
+                            {m.active ? "Active" : "Suspended"}
+                          </Badge>
+                        </td>
+                        <td>
+                          <div className="flex flex-wrap gap-3">
+                            <button
+                              className="text-emerald-700"
+                              onClick={() =>
+                                setModal({ kind: "member", record: m })
+                              }
+                            >
+                              Edit access
+                            </button>
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                act(
+                                  () => api.send(`/team/${m.id}/sign-out`),
+                                  "Person signed out of this company",
+                                )
+                              }
+                              className="text-zinc-500"
+                            >
+                              Sign out
+                            </button>
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                act(
+                                  () => api.send(`/team/${m.id}/recover`),
+                                  "Password recovery requested",
+                                )
+                              }
+                              className="text-zinc-500"
+                            >
+                              Reset password
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="border-t border-zinc-100 p-6 text-xs leading-6 text-zinc-500">
+                Access changes require recent password verification. Production
+                administrators also verify an authenticator code in Security.
+                Password resets send recovery instructions; existing passwords
+                are never visible.
+              </p>
+            </section>
+          )}
+          {page === "Activity" && (
+            <div className="space-y-6">
+              <section className="online-panel">
+                <div className="px-6 py-5 text-sm font-semibold">
+                  Stock movements
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="online-table">
+                    <thead>
+                      <tr>
+                        <th>When</th>
+                        <th>Product</th>
+                        <th>Location</th>
+                        <th>Change</th>
+                        <th>Movement</th>
+                        <th>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movements.map((m) => (
+                        <tr key={m.id}>
+                          <td className="whitespace-nowrap text-zinc-400">
+                            {new Date(m.created_at).toLocaleString()}
+                          </td>
+                          <td>{productName(m.product_id)}</td>
+                          <td>{locationName(m.location_id)}</td>
+                          <td
+                            className={
+                              m.delta > 0 ? "text-emerald-700" : "text-zinc-700"
+                            }
+                          >
+                            {m.delta > 0 ? "+" : ""}
+                            {m.delta}
+                          </td>
+                          <td>{m.kind.replaceAll("_", " ").toLowerCase()}</td>
+                          <td className="max-w-64 text-zinc-400">
+                            {m.reason || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {!movements.length && (
+                  <Empty
+                    title="Your stock history starts here"
+                    text="Every posted receipt, transfer, sale and return creates a movement."
+                  />
+                )}
+              </section>
+              {company.role === "ADMIN" && (
+                <section className="online-panel p-6">
+                  <h2 className="text-sm font-semibold">Company audit trail</h2>
+                  <div className="mt-4 divide-y divide-zinc-100">
+                    {data.audit.slice(0, 30).map((a) => (
+                      <div
+                        key={a.id}
+                        className="flex flex-wrap justify-between gap-2 py-3 text-xs"
+                      >
+                        <span>
+                          {a.action.replaceAll(".", " · ").replaceAll("_", " ")}
+                        </span>
+                        <span className="text-zinc-400">
+                          {new Date(a.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+          {page === "Security" && (
+            <div className="grid gap-6 xl:grid-cols-2">
+              <section className="online-panel p-6">
+                <h2 className="text-sm font-semibold">Change your password</h2>
+                <form
+                  className="mt-6 space-y-5"
+                  onSubmit={(e) =>
+                    formAction(
+                      e,
+                      (f) =>
+                        publicApi.send("/auth/password", Object.fromEntries(f)),
+                      "Password changed; your other Honor sessions are signed out",
+                    )
+                  }
+                >
+                  <Field label="Current password">
+                    <input
+                      required
+                      type="password"
+                      name="current_password"
+                      autoComplete="current-password"
+                      className="online-input"
+                    />
+                  </Field>
+                  <Field label="New password · at least 12 characters">
+                    <input
+                      required
+                      minLength={12}
+                      maxLength={256}
+                      type="password"
+                      name="new_password"
+                      autoComplete="new-password"
+                      className="online-input"
+                    />
+                  </Field>
+                  <button disabled={busy} className="honor-button">
+                    Change password
+                  </button>
+                </form>
+              </section>
+              <section className="online-panel p-6">
+                <h2 className="text-sm font-semibold">
+                  Verify sensitive actions
+                </h2>
+                <p className="mt-3 text-xs leading-6 text-zinc-500">
+                  Re-enter your password before changing team access.
+                  Verification lasts five minutes.
+                </p>
+                <form
+                  className="mt-5 space-y-4"
+                  onSubmit={(e) =>
+                    formAction(
+                      e,
+                      (f) =>
+                        publicApi.send("/auth/reauthenticate", {
+                          email: me.email,
+                          password: f.get("password"),
+                        }),
+                      "Password verified for sensitive actions",
+                    )
+                  }
+                >
+                  <Field label="Your current password">
+                    <input
+                      required
+                      type="password"
+                      name="password"
+                      autoComplete="current-password"
+                      className="online-input"
+                    />
+                  </Field>
+                  <button disabled={busy} className="online-secondary">
+                    Verify password
+                  </button>
+                </form>
+                <div className="mt-7 border-t border-zinc-100 pt-6">
+                  <h3 className="text-sm font-semibold">Authenticator</h3>
+                  {config?.development ? (
+                    <p className="mt-3 text-xs leading-6 text-zinc-500">
+                      Authenticator verification is enforced for administrators
+                      when managed identity is enabled in production.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mt-3 text-xs leading-6 text-zinc-500">
+                        {me.mfa
+                          ? "Authenticator verified for this session."
+                          : "Verify a code before changing company access."}
+                      </p>
+                      {!me.factors?.some((f) => f.status === "verified") &&
+                        !enrolment && (
+                          <button
+                            className="online-secondary mt-4"
+                            disabled={busy}
+                            onClick={() =>
+                              act(async () => {
+                                const result =
+                                  await publicApi.send("/auth/mfa/enrol");
+                                setEnrolment(result);
+                              }, "Scan the authenticator code, then verify")
+                            }
+                          >
+                            Set up authenticator
+                          </button>
+                        )}
+                      {enrolment && (
+                        <div className="mt-4">
+                          <img
+                            alt="Scan with your authenticator app"
+                            className="h-40 w-40"
+                            src={
+                              "data:image/svg+xml," +
+                              encodeURIComponent(enrolment.totp?.qr_code || "")
+                            }
+                          />
+                          <p className="mt-2 break-all text-xs text-zinc-500">
+                            Manual key: {enrolment.totp?.secret}
+                          </p>
+                        </div>
+                      )}
+                      <form
+                        className="mt-4 space-y-4"
+                        onSubmit={(e) =>
+                          formAction(
+                            e,
+                            (f) =>
+                              publicApi.send("/auth/mfa/verify", {
+                                factor_id:
+                                  enrolment?.id ||
+                                  me.factors.find(
+                                    (f) => f.status === "verified",
+                                  )?.id,
+                                code: f.get("code"),
+                              }),
+                            "Authenticator verified",
+                          )
+                        }
+                      >
+                        <Field label="Six-digit code">
+                          <input
+                            required
+                            name="code"
+                            inputMode="numeric"
+                            pattern="[0-9]{6}"
+                            maxLength={6}
+                            autoComplete="one-time-code"
+                            className="online-input"
+                          />
+                        </Field>
+                        <button disabled={busy} className="honor-button">
+                          Verify authenticator
+                        </button>
+                      </form>
+                    </>
+                  )}
+                </div>
+              </section>
+            </div>
+          )}
+          {page === "Company" && company.role === "ADMIN" && (
+            <div className="grid gap-6 xl:grid-cols-2">
+              <section className="online-panel p-6">
+                <h2 className="text-sm font-semibold">Company locations</h2>
+                <div className="mt-5 space-y-3">
+                  {data.locations.map((l) => (
+                    <p key={l.id} className="rounded-lg bg-zinc-50 p-3 text-xs">
+                      {l.name}
+                      {l.fulfil_online && (
+                        <span className="mt-1 block text-[10px] text-emerald-700">
+                          Online collection · {l.address}
+                        </span>
+                      )}
+                    </p>
+                  ))}
+                </div>
+                <form
+                  className="mt-6 space-y-4"
+                  onSubmit={(e) =>
+                    formAction(
+                      e,
+                      (f) =>
+                        api.send("/locations", {
+                          name: f.get("name"),
+                          address: f.get("address"),
+                          fulfil_online: f.get("fulfil_online") === "on",
+                        }),
+                      "Location added",
+                    )
+                  }
+                >
+                  <Field label="New location name">
+                    <input
+                      required
+                      name="name"
+                      minLength={2}
+                      maxLength={100}
+                      className="online-input"
+                    />
+                  </Field>
+                  <Field label="Collection address (required for online collection)">
+                    <textarea
+                      name="address"
+                      maxLength={300}
+                      className="online-input"
+                    />
+                  </Field>
+                  <label className="flex items-center gap-2 text-xs">
+                    <input type="checkbox" name="fulfil_online" />
+                    Use this location for online collection
+                  </label>
+                  <button disabled={busy} className="honor-button">
+                    <Plus size={14} />
+                    Add location
+                  </button>
+                </form>
+                <p className="mt-6 text-xs leading-6 text-zinc-500">
+                  Currency: {company.currency} · Timezone: {company.timezone}.
+                  Your storefront is{" "}
+                  <a
+                    className="text-emerald-700 underline"
+                    href={"/shop/" + company.slug}
+                  >
+                    available here
+                  </a>
+                  .
+                </p>
+              </section>
+              <section className="online-panel p-6">
+                <h2 className="text-sm font-semibold">Delivery jobs</h2>
+                <p className="mt-3 text-xs leading-6 text-zinc-500">
+                  Queued emails and payment events stay visible until processing
+                  completes. Queued does not mean delivered.
+                </p>
+                <div className="mt-5 space-y-3">
+                  {data.jobs.slice(0, 12).map((j) => (
+                    <div
+                      key={j.id}
+                      className="flex items-center justify-between rounded-lg bg-zinc-50 p-3 text-xs"
+                    >
+                      <span>
+                        {j.kind.replaceAll("_", " ").toLowerCase()}
+                        <span className="mt-1 block text-[10px] text-zinc-400">
+                          {j.attempts} attempts
+                          {j.last_error ? " · Needs review" : ""}
+                        </span>
+                      </span>
+                      <Badge warning={j.status !== "DONE"}>{j.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
+        </main>
+      </div>
+      {modal && (
+        <Modal
+          title={
+            {
+              product: modal.record ? "Edit product" : "Add a product",
+              transfer: "Dispatch a transfer",
+              adjustment: "Record an adjustment",
+              return: "Record an inspected return",
+              invite: "Invite a person",
+              member: "Edit company access",
+            }[modal.kind] || "Stock operation"
+          }
+          onClose={() => !busy && setModal(null)}
+        >
+          {error && (
+            <p
+              role="alert"
+              className="mb-5 rounded-lg bg-red-50 p-3 text-xs leading-6 text-red-700"
+            >
+              {error}
+            </p>
+          )}
+          {modal.kind === "product" ? (
+            <ProductForm
+              product={modal.record}
+              busy={busy}
+              onSubmit={(e) =>
+                formAction(
+                  e,
+                  (f) =>
+                    api.send(
+                      modal.record
+                        ? `/products/${modal.record.id}`
+                        : "/products",
+                      {
+                        sku: f.get("sku"),
+                        name: f.get("name"),
+                        description: f.get("description"),
+                        category: f.get("category"),
+                        tracking: f.get("tracking"),
+                        price_minor: Math.round(Number(f.get("price")) * 100),
+                        cost_minor: Math.round(Number(f.get("cost")) * 100),
+                        reorder_point: Number(f.get("reorder")),
+                        published: f.get("published") === "on",
+                        image_url: f.get("image"),
+                      },
+                      modal.record ? "PUT" : "POST",
+                    ),
+                  "Product saved",
+                )
+              }
+            />
+          ) : ["invite", "member"].includes(modal.kind) ? (
+            <MemberForm
+              member={modal.record}
+              locations={data.locations}
+              busy={busy}
+              onSubmit={(e) =>
+                formAction(
+                  e,
+                  async (f) => {
+                    const body = {
+                      role: f.get("role"),
+                      active: f.get("active") === "on",
+                      location_ids: f.getAll("location_ids"),
+                    };
+                    if (modal.kind === "member")
+                      return api.send(
+                        `/team/${modal.record.id}`,
+                        body,
+                        "PATCH",
+                      );
+                    const result = await api.send("/invitations", {
+                      ...body,
+                      email: f.get("email"),
+                    });
+                    if (result.development_link)
+                      setInvitationLink(result.development_link);
+                    return result;
+                  },
+                  modal.kind === "invite"
+                    ? "Invitation queued for email delivery"
+                    : "Company access updated",
+                )
+              }
+            />
+          ) : (
+            <OperationForm
+              kind={modal.kind}
+              record={modal.record}
+              data={data}
+              busy={busy}
+              onSubmit={(e) =>
+                formAction(
+                  e,
+                  (f) => {
+                    if (modal.kind === "adjustment")
+                      return api.command("/adjustments", {
+                        product_id: f.get("product_id"),
+                        location_id: f.get("location_id"),
+                        delta: Number(f.get("quantity")),
+                        reason: f.get("reason"),
+                      });
+                    if (modal.kind === "return")
+                      return api.command(`/orders/${modal.record.id}/returns`, {
+                        ...stockBody(f),
+                        location_id: modal.record.location_id,
+                        restock: f.get("restock") === "on",
+                      });
+                    return api.command("/transfers", {
+                      ...stockBody(f),
+                      destination_id: f.get("destination_id"),
+                    });
+                  },
+                  modal.kind === "transfer"
+                    ? "Transfer dispatched; awaiting destination receipt"
+                    : modal.kind === "return"
+                      ? "Inspected return recorded; refund is a separate payment action"
+                      : "Adjustment posted with its reason",
+                )
+              }
+            />
+          )}
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function stockBody(f: FormData) {
+  return {
+    product_id: f.get("product_id"),
+    location_id: f.get("location_id"),
+    quantity: Number(f.get("quantity")),
+    reason: f.get("reason"),
+    serials: String(f.get("serials") || "")
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  };
+}
+function OperationForm({
+  kind,
+  record,
+  data,
+  busy,
+  onSubmit,
+}: {
+  kind: string;
+  record?: any;
+  data: Bundle;
+  busy: boolean;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+}) {
+  const products =
+    kind === "return"
+      ? data.products.filter((p) =>
+          record.lines.some(
+            (l: any) =>
+              l.product_id === p.id && l.quantity > l.returned_quantity,
+          ),
+        )
+      : kind === "adjustment"
+        ? data.products.filter((p) => p.tracking === "QUANTITY")
+        : data.products;
+  const [productId, setProductId] = useState(products[0]?.id || "");
+  const p = products.find((x) => x.id === productId) || products[0];
+  if (!products.length || !data.locations.length)
+    return (
+      <Empty
+        title="Add your catalogue and locations first"
+        text="Your administrator can add locations in Company and products in Inventory."
+      />
+    );
+  return (
+    <form className="space-y-5" onSubmit={onSubmit}>
+      <Field label="Product">
+        <select
+          name="product_id"
+          value={p?.id}
+          onChange={(e) => setProductId(e.target.value)}
+          className="online-input"
+        >
+          {products.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.name} · {x.sku}
+            </option>
+          ))}
+        </select>
+      </Field>
+      {kind !== "return" && (
+        <Field label={kind === "transfer" ? "From location" : "Location"}>
+          <select name="location_id" className="online-input">
+            {data.locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+      {kind === "transfer" && (
+        <Field label="To location">
+          <select name="destination_id" className="online-input">
+            {data.destinations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+      <Field
+        label={
+          kind === "adjustment"
+            ? "Quantity change · negative to reduce stock"
+            : "Quantity physically checked"
+        }
+      >
+        <input
+          required
+          name="quantity"
+          type="number"
+          step="1"
+          min={kind === "adjustment" ? -1000000 : 1}
+          max={1000000}
+          defaultValue={1}
+          className="online-input"
+        />
+      </Field>
+      {p?.tracking === "SERIAL" && (
+        <Field label="Serials / IMEIs · one per line">
+          <textarea
+            required
+            name="serials"
+            rows={4}
+            maxLength={101000}
+            className="online-input"
+            placeholder="Enter each serial you have checked"
+          />
+        </Field>
+      )}
+      <Field
+        label={
+          kind === "return"
+            ? "Inspection result and reason"
+            : "Reference / reason"
+        }
+      >
+        <textarea
+          required
+          name="reason"
+          minLength={5}
+          maxLength={300}
+          rows={3}
+          className="online-input"
+          placeholder={
+            kind === "receipt"
+              ? "Supplier delivery or opening-stock reference"
+              : "Explain this movement"
+          }
+        />
+      </Field>
+      {kind === "return" && (
+        <label className="flex items-start gap-3 text-xs leading-6 text-zinc-600">
+          <input
+            type="checkbox"
+            name="restock"
+            defaultChecked
+            className="mt-1"
+          />
+          Inspected and fit for resale. Uncheck to quarantine the returned
+          device.
+        </label>
+      )}
+      <button disabled={busy} className="honor-button w-full">
+        {busy
+          ? "Recording…"
+          : kind === "receipt"
+            ? "Receive & record stock"
+            : kind === "transfer"
+              ? "Dispatch transfer"
+              : kind === "return"
+                ? "Record inspected return"
+                : "Post adjustment"}
+        <ArrowRight size={15} />
+      </button>
+      <p className="text-[10px] leading-5 text-zinc-400">
+        This records a company stock operation. Check quantities and references
+        before submitting.
+      </p>
+    </form>
+  );
+}
+
+function ProductForm({
+  product: p,
+  busy,
+  onSubmit,
+}: {
+  product?: Product;
+  busy: boolean;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form className="space-y-5" onSubmit={onSubmit}>
+      <Field label="Product name">
+        <input
+          required
+          name="name"
+          minLength={2}
+          maxLength={160}
+          defaultValue={p?.name}
+          className="online-input"
+        />
+      </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="SKU">
+          <input
+            required
+            name="sku"
+            maxLength={80}
+            defaultValue={p?.sku}
+            className="online-input"
+          />
+        </Field>
+        <Field label="Category">
+          <input
+            required
+            name="category"
+            maxLength={80}
+            defaultValue={p?.category || "General"}
+            className="online-input"
+          />
+        </Field>
+      </div>
+      <Field label="Tracking">
+        <select
+          name="tracking"
+          defaultValue={p?.tracking || "QUANTITY"}
+          className="online-input"
+        >
+          <option value="QUANTITY">Quantity</option>
+          <option value="SERIAL">Individual serial / IMEI</option>
+        </select>
+      </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Selling price">
+          <input
+            required
+            name="price"
+            type="number"
+            min="0"
+            step="0.01"
+            max="20000000"
+            defaultValue={p ? p.price_minor / 100 : ""}
+            className="online-input"
+          />
+        </Field>
+        <Field label="Unit cost">
+          <input
+            required
+            name="cost"
+            type="number"
+            min="0"
+            step="0.01"
+            max="20000000"
+            defaultValue={p ? (p.cost_minor || 0) / 100 : 0}
+            className="online-input"
+          />
+        </Field>
+      </div>
+      <Field label="Reorder point">
+        <input
+          required
+          name="reorder"
+          type="number"
+          min="0"
+          max="1000000"
+          step="1"
+          defaultValue={p?.reorder_point ?? 5}
+          className="online-input"
+        />
+      </Field>
+      <Field label="Description">
+        <textarea
+          name="description"
+          rows={3}
+          maxLength={3000}
+          defaultValue={p?.description}
+          className="online-input"
+        />
+      </Field>
+      <Field label="Product image · HTTPS address (optional)">
+        <input
+          name="image"
+          type="url"
+          maxLength={2000}
+          defaultValue={p?.image_url}
+          className="online-input"
+        />
+      </Field>
+      <label className="flex items-center gap-2 text-xs text-zinc-600">
+        <input name="published" type="checkbox" defaultChecked={p?.published} />
+        Publish in the customer store
+      </label>
+      <button disabled={busy} className="honor-button w-full">
+        {busy ? "Saving…" : "Save product"}
+      </button>
+    </form>
+  );
+}
+function MemberForm({
+  member,
+  locations,
+  busy,
+  onSubmit,
+}: {
+  member?: any;
+  locations: Location[];
+  busy: boolean;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form className="space-y-5" onSubmit={onSubmit}>
+      {!member && (
+        <Field label="Person's email">
+          <input
+            required
+            type="email"
+            name="email"
+            maxLength={254}
+            className="online-input"
+          />
+        </Field>
+      )}
+      <Field label="Company role">
+        <select
+          name="role"
+          defaultValue={member?.role || "STOCK"}
+          className="online-input"
+        >
+          <option value="ADMIN">Company administrator</option>
+          <option value="MANAGER">Branch manager</option>
+          <option value="STOCK">Stock operator</option>
+          <option value="SALES">Sales staff</option>
+        </select>
+      </Field>
+      <fieldset>
+        <legend className="mb-3 text-xs font-medium text-zinc-600">
+          Permitted locations · administrators can access all
+        </legend>
+        <div className="space-y-3">
+          {locations.map((l) => (
+            <label key={l.id} className="flex items-center gap-3 text-xs">
+              <input
+                type="checkbox"
+                name="location_ids"
+                value={l.id}
+                defaultChecked={member?.location_ids.includes(l.id)}
+              />
+              {l.name}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <label className="flex items-center gap-3 text-xs">
+        <input
+          type="checkbox"
+          name="active"
+          defaultChecked={member?.active ?? true}
+        />
+        Active access
+      </label>
+      <button disabled={busy} className="honor-button w-full">
+        {busy ? "Saving…" : member ? "Update access" : "Send invitation"}
+      </button>
+      <p className="text-[10px] leading-6 text-zinc-400">
+        Invited people set their own password. Suspension blocks company access
+        and preserves their historical activity.
+      </p>
+    </form>
+  );
+}
+function CompanyForm({
+  onSubmit,
+  busy,
+}: {
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  busy: boolean;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <Field label="Company name">
+        <input
+          required
+          name="name"
+          minLength={2}
+          maxLength={120}
+          className="online-input"
+        />
+      </Field>
+      <Field label="Store address name · lowercase words separated by hyphens">
+        <input
+          required
+          name="slug"
+          minLength={3}
+          maxLength={80}
+          pattern="[a-z0-9]+(-[a-z0-9]+)*"
+          className="online-input"
+        />
+      </Field>
+      <Field label="Selling currency">
+        <select
+          name="currency"
+          required
+          className="online-input"
+          defaultValue=""
+        >
+          <option value="" disabled>
+            Select currency
+          </option>
+          {["NGN", "USD", "GBP", "EUR", "GHS", "ZAR", "KES"].map((c) => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Company timezone">
+        <input
+          required
+          name="timezone"
+          defaultValue={Intl.DateTimeFormat().resolvedOptions().timeZone}
+          className="online-input"
+        />
+      </Field>
+      <button disabled={busy} className="honor-button w-full">
+        Create company workspace
+      </button>
+    </form>
+  );
+}
+function SignIn({
+  api,
+  refresh,
+  development,
+  error,
+  setError,
+}: {
+  api: ReturnType<typeof client>;
+  refresh: () => Promise<void>;
+  development?: boolean;
+  error: string;
+  setError: (e: string) => void;
+}) {
+  const [mode, setMode] = useState<"login" | "register" | "recover" | "reset">(
+    () =>
+      new URLSearchParams(window.location.search).has("recovery")
+        ? "reset"
+        : "login",
+  );
+  const [busy, setBusy] = useState(false),
+    [message, setMessage] = useState("");
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setMessage("");
+    const values = Object.fromEntries(new FormData(event.currentTarget));
+    try {
+      if (mode === "reset") {
+        const result = await api.send("/auth/recovery-password", {
+          token_hash: new URLSearchParams(window.location.search).get(
+            "recovery",
+          ),
+          new_password: values.password,
+        });
+        setMessage(result.message);
+        window.history.replaceState({}, "", window.location.pathname);
+        setMode("login");
+      } else if (mode === "login") {
+        await api.send("/auth/login", values);
+        await refresh();
+      } else {
+        const result = await api.send(
+          mode === "register" ? "/auth/register" : "/auth/recover",
+          values,
+        );
+        setMessage(result.message);
+        if (mode === "register") setMode("login");
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="online-app grid min-h-screen bg-[#f6f8f5] lg:grid-cols-2">
+      <section className="hidden flex-col justify-between bg-[#132b25] p-16 text-white lg:flex">
+        <Brand />
+        <div>
+          <p className="text-[10px] uppercase tracking-[.2em] text-emerald-200/50">
+            A little more clarity. Every day.
+          </p>
+          <h1 className="mt-6 max-w-lg text-5xl font-medium leading-[1.2] tracking-tight">
+            Your inventory.
+            <br />
+            Every movement.
+            <br />
+            <span className="text-[#a7c7a0]">All in order.</span>
+          </h1>
+          <p className="mt-7 max-w-sm text-sm leading-7 text-emerald-100/50">
+            A shared workspace for the people, products and decisions that keep
+            your business moving.
+          </p>
+        </div>
+        <p className="text-[10px] text-emerald-100/35">
+          Company-controlled access · Traceable stock · Connected orders
+        </p>
+      </section>
+      <section className="flex items-center justify-center p-6 sm:p-12">
+        <div className="w-full max-w-sm">
+          <div className="mb-12 lg:hidden">
+            <Brand />
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-700">
+            Honor workspace
+          </p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight">
+            {mode === "register"
+              ? "Your own account."
+              : mode === "recover"
+                ? "Recover your access."
+                : mode === "reset"
+                  ? "Choose a new password."
+                  : "Welcome back."}
+          </h2>
+          <p className="mt-4 text-sm leading-6 text-zinc-500">
+            {mode === "register"
+              ? "Create your account, then accept your company's invitation."
+              : "Sign in to the company workspace you have been given access to."}
+          </p>
+          {development && (
+            <p className="mt-5 rounded-lg bg-amber-50 p-3 text-xs leading-6 text-amber-800">
+              Development workspace. Use the account created during local setup.
+            </p>
+          )}
+          {error && (
+            <p
+              role="alert"
+              className="mt-5 rounded-lg bg-red-50 p-3 text-xs leading-6 text-red-700"
+            >
+              {error}
+            </p>
+          )}
+          {message && (
+            <p
+              role="status"
+              className="mt-5 rounded-lg bg-emerald-50 p-3 text-xs leading-6 text-emerald-800"
+            >
+              {message}
+            </p>
+          )}
+          <form onSubmit={submit} className="mt-8 space-y-5">
+            {mode === "register" && (
+              <Field label="Your name">
+                <input
+                  required
+                  name="name"
+                  minLength={1}
+                  maxLength={120}
+                  autoComplete="name"
+                  className="online-input"
+                />
+              </Field>
+            )}
+            {mode !== "reset" && (
+              <Field label="Email address">
+                <input
+                  required
+                  name="email"
+                  type="email"
+                  maxLength={254}
+                  autoComplete="email"
+                  className="online-input"
+                />
+              </Field>
+            )}
+            {mode !== "recover" && (
+              <Field label={mode === "reset" ? "New password" : "Password"}>
+                <input
+                  required
+                  name="password"
+                  type="password"
+                  maxLength={256}
+                  minLength={mode === "register" || mode === "reset" ? 12 : 1}
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  className="online-input"
+                />
+              </Field>
+            )}
+            <button disabled={busy} className="honor-button w-full">
+              {busy
+                ? "Please wait…"
+                : mode === "login"
+                  ? "Sign in"
+                  : mode === "register"
+                    ? "Create account"
+                    : mode === "reset"
+                      ? "Reset password"
+                      : "Send recovery email"}
+              <ArrowRight size={15} />
+            </button>
+          </form>
+          <div className="mt-6 flex justify-between gap-4 text-xs">
+            <button
+              className="text-emerald-700"
+              onClick={() => {
+                setMode(mode === "login" ? "register" : "login");
+                setError("");
+              }}
+            >
+              {mode === "login" ? "Create an account" : "Back to sign in"}
+            </button>
+            {mode === "login" && (
+              <button
+                className="text-zinc-400"
+                onClick={() => {
+                  setMode("recover");
+                  setError("");
+                }}
+              >
+                Forgot password?
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}

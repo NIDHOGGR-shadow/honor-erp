@@ -1,0 +1,33 @@
+# Honor delivery status
+
+Date: 23 October 2026. This records local source implementation and verification. No production resources, live credentials or merchant payments have been provisioned.
+
+## Built
+
+The connected React staff workspace uses FastAPI instead of localStorage for company inventory. It includes company setup, location grants, catalogue editing/publication, inventory overview, receiving, transfers, orders, inspected returns, people/access, history and security. The Next.js storefront shares the public catalogue/cart/order UI and server-renders initial catalogue data when configured.
+
+The backend has a PostgreSQL schema and initial Alembic migration, immutable ledger/audit triggers, tenant foreign keys, stock/serial constraints, idempotent stock commands and transactional reservations. Customer orders reserve stock and only issue it on staff fulfilment after payment confirmation. Expiry, duplicate events, incorrect amounts and late-payment stock conflicts have explicit handling.
+
+Identity uses Supabase in production with server-side opaque HttpOnly sessions. Provider tokens are encrypted and not sent to the browser. Company suspension, company-scoped forced sign-out, protected last-admin checks, password verification, production administrator MFA and email-bound invitations are implemented. Development identity and simulated payment modes are rejected in production.
+
+Payment adapters are implemented for Paystack and Stripe, with one configured pilot merchant company. The outbox worker durably processes provider events and email jobs with leases/retries. Email queue status is visible. No email delivery or real payment has been claimed.
+
+The root Docker image can serve the dashboard and API together; a development Compose stack, random local configuration generator, separate Next.js app, dependency lockfiles and CI are included. Docker itself is unavailable in the current executor, so image/Compose startup still needs verification on a Docker-capable machine.
+
+## Verification
+
+- Frontend: TypeScript, 13 regression/render tests and Vite production build passed. Route splitting keeps the legacy demonstration out of the initial connected-workspace bundle.
+- Next.js: production build and its TypeScript check passed.
+- Backend: 29 integration cases passed against embedded PostgreSQL. They cover receipt replay/rollback, strict quantities, private catalogue fields, reservations, paid-only fulfilment, serial return/reconciliation, transfer transit, expiry/late payment, tenant/location denial, suspension/sign-out, password changes, invitations, CSRF origin checks, immutable history and signed duplicate payment events.
+- Native concurrent last-unit reservation: configured as a separate CI case against PostgreSQL 17; skipped by the local embedded runner because it serializes database connections. Do not claim native concurrency has passed until the remote CI result is available.
+- Browser: the redesigned sign-in view rendered. The managed preview isolates the frontend from the Python runtime, preventing authenticated end-to-end browser acceptance here. The customer purchase and staff interaction paths have API/build coverage but are not visually signed off.
+
+## Still required before a business pilot
+
+Provision the isolated Supabase project and restricted runtime database role; configure SMTP and confirm managed signup/recovery/MFA flows; choose an eligible merchant/provider/currency and exercise its real test environment; deploy worker/cleanup/reconciliation; complete desktop/mobile/keyboard browser checks; test backups/restoration; define business stock valuation and receipt/tax policy. See RUNBOOK.md.
+
+## Planned extensions
+
+Private file uploads; real-time subscriptions instead of periodic refresh; cursor pagination and import staging; operational stock counts and persisted approvals; purchasing and partial/discrepancy transfer receipt; fully connected in-store POS; shipping/carrier integration; automated monetary refunds and refund reconciliation; inventory valuation/accounting; evaluated demand forecasting and an optional open-source language-model assistant.
+
+The first customer workflow is collection from a designated location. A return record is not a completed payment refund. Forecast recommendations are not fabricated from the small fictional seed dataset. The original browser-only demonstration at `/demo` remains clearly labelled and separate from connected stock.
