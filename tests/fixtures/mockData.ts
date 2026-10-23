@@ -18,7 +18,7 @@ import {
   Supplier,
   NotificationItem,
   AuditLogEntry,
-} from "../types";
+} from "../../src/types";
 
 export const INITIAL_LOCATIONS: Location[] = [
   {

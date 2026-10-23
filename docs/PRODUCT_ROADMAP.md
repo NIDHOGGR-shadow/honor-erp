@@ -16,7 +16,7 @@ Success is measured by stock accuracy, prevented overselling, time to receive/lo
 
 Public product preview: https://honor-inventory-preview.zippyduck7.chatgpt.site
 
-This deployment is a static demonstration. Every visitor sees fictional records and keeps changes in that browser. It accepts no real payments and provides no shared company stock or real customer account centre. The preview flag bypasses connected login deliberately; it must stay false in the production workspace.
+This deployment is a static demonstration. The preview now starts empty with no seeded products, stock, sales, contacts, locations or staff. Changes stay in that browser. It accepts no real payments and provides no shared company stock or real customer account centre. The preview flag bypasses connected login deliberately; it must stay false in the production workspace.
 
 Application source: `NIDHOGGR-shadow/honor-erp`, branch `feat/online-inventory`, draft PR #1. The connected backend and Next.js shop have passed CI builds and tests but still need their production services and hosted acceptance tests. Preview code and connected business operations must not be confused in sales material.
 
@@ -139,7 +139,7 @@ Create a fixed evaluation set covering missing facts, out-of-stock items, price 
 
 | Phase | Work | Completion check |
 | --- | --- | --- |
-| 0: Public preview | Publish sample workflows, retain source, collect feedback | Public URL loads; records are clearly fictional; no payment/account claims. Complete. |
+| 0: Public preview | Publish empty workflows, retain source, collect feedback | Public URL loads; no business records are seeded; no payment/account claims. Complete. |
 | 1: Connected inventory pilot | Isolated database/auth/email, API + worker hosting, roles, monitoring and recovery | Two staff browsers share stock; unauthorized locations/companies are denied; receiving/transfer/return reconcile; restore is exercised. |
 | 2: Customer centre | Email + Google, profile, order ownership/history and guest claims | Login/logout/recovery pass; customers cannot see one another's orders or any staff area; existing guest checkout remains available. |
 | 3: Commerce acceptance | Eligible merchant/test credentials, provider events, order notices and collection process | Paid/failed/abandoned/duplicate/late-payment cases pass; final-unit competition cannot oversell; refund-required cases are operationally visible. Real payments stay disabled until this passes. |

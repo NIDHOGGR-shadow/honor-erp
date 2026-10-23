@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 export const SettingsModule: React.FC = () => {
-  const { locations, resetToDemoData } = useApp();
+  const { locations, resetPreviewData } = useApp();
 
   const [activeTab, setActiveTab] = useState<
     "business" | "locations" | "receipt" | "data"
@@ -314,28 +314,27 @@ export const SettingsModule: React.FC = () => {
             <div className="space-y-4 max-w-lg text-xs">
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
                 <div className="font-bold text-amber-900 text-sm">
-                  Demo Data & State Persistence
+                  Browser preview data
                 </div>
                 <p className="text-amber-800 leading-relaxed">
-                  All inventory transactions, customer files, IMEI tracking, and
-                  POS receipts are stored locally in your browser session. If
-                  you wish to wipe current changes and reset to the pristine
-                  Nigerian retail test dataset:
+                  Changes in this preview are saved only in this browser.
+                  Reset clears preview records and returns to empty inventory.
+                  No products or sample business records are added.
                 </p>
                 <button
                   onClick={() => {
                     if (
                       confirm(
-                        "Reset all inventory, sales, and customer data to initial sample state?",
+                        "Clear this browser's preview records and return to empty inventory?",
                       )
                     ) {
-                      resetToDemoData();
+                      resetPreviewData();
                     }
                   }}
                   className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl font-bold shadow-xs flex items-center gap-1.5 mt-2"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Restore Initial Mock State</span>
+                  <span>Reset empty preview</span>
                 </button>
               </div>
             </div>

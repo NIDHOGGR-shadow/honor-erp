@@ -36,9 +36,9 @@ export const Sidebar: React.FC = () => {
     activeModule,
     setActiveModule,
     activeStaff,
-    switchStaffRole,
     currentLocation,
     activeLocationId,
+    locations,
     isSidebarCollapsed,
     setIsSidebarCollapsed,
     isMobileMenuOpen,
@@ -311,8 +311,8 @@ export const Sidebar: React.FC = () => {
                 <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 <span className="truncate font-medium">
                   {activeLocationId === "ALL"
-                    ? "All Locations (Lagos)"
-                    : currentLocation?.name || "Ikeja Branch"}
+                    ? locations.length ? "All company locations" : "No locations configured"
+                    : currentLocation?.name || "No location selected"}
                 </span>
               </div>
 
@@ -325,7 +325,7 @@ export const Sidebar: React.FC = () => {
                   <div className="flex items-center gap-1 mt-0.5">
                     <span className="inline-flex items-center text-[10px] px-1.5 py-0.2 rounded font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700">
                       <Shield className="w-2.5 h-2.5 mr-1 text-emerald-400" />
-                      {activeStaff.role}
+                      {activeStaff.id === "preview-session" ? "Not signed in" : activeStaff.role}
                     </span>
                   </div>
                 </div>

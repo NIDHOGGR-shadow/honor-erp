@@ -11,6 +11,7 @@
  */
 
 import React, { useEffect } from "react";
+import type { PreviewData } from "./data/previewState";
 import { AppProvider, useApp } from "./context/AppContext";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
@@ -155,7 +156,7 @@ const AppContent: React.FC = () => {
             >
               <span className="inline-flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                Product preview · sample records stored only in this browser
+                Browser preview · shared accounts are not connected
               </span>
               <span>Company-controlled inventory</span>
             </div>
@@ -173,9 +174,9 @@ const AppContent: React.FC = () => {
   );
 };
 
-export default function App() {
+export default function App({ initialData }: { initialData?: Partial<PreviewData> } = {}) {
   return (
-    <AppProvider>
+    <AppProvider initialData={initialData}>
       <AppContent />
     </AppProvider>
   );

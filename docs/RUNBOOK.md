@@ -6,7 +6,7 @@ Date: 23 October 2026. This runbook describes the first online implementation, n
 
 `python scripts/configure_dev.py` creates an ignored root `.env` with random database/session secrets, local development identity and explicit simulated payments. It refuses to overwrite an existing file. The Docker Compose development stack includes PostgreSQL 17, a migration job, the API/dashboard and an outbox worker. The database volume survives container restarts. Stop it with `docker compose -f compose.dev.yaml down`; do not add `--volumes` unless deliberately deleting its records.
 
-Run `docker compose -f compose.dev.yaml up --build`, then `docker compose -f compose.dev.yaml exec api .venv/bin/python -m honor.cli seed-demo --email your-email@example.test`. Choose a password of at least 12 characters at the prompt. Seeding only works in development and refuses to overwrite an existing demo. No default password is provided.
+Run `docker compose -f compose.dev.yaml up --build`, open the workspace and register with your own email and password. Create the company after sign-in. Inventory starts empty; do not run the development fixture seeder during Honor setup. No default administrator account or password is provided.
 
 The first company can instead be created through registration/sign-in and company setup. Add a location, its collection address and online-collection permission in Company. Add/publish products in Inventory, then receive checked stock with a reference. Stock in an internal warehouse is not automatically offered for online collection.
 

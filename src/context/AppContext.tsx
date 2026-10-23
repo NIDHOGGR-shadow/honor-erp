@@ -34,22 +34,7 @@ import {
   SaleLine,
   TransferLine,
 } from "../types";
-import {
-  INITIAL_LOCATIONS,
-  INITIAL_STAFF,
-  INITIAL_PRODUCTS,
-  INITIAL_VARIANTS,
-  INITIAL_STOCK_UNITS,
-  INITIAL_STOCK_LEVELS,
-  INITIAL_SALES,
-  INITIAL_PURCHASES,
-  INITIAL_TRANSFERS,
-  INITIAL_CUSTOMERS,
-  INITIAL_SUPPLIERS,
-  INITIAL_MOVEMENTS,
-  INITIAL_NOTIFICATIONS,
-  INITIAL_AUDIT_LOGS,
-} from "../data/mockData";
+import { emptyPreviewData, PREVIEW_SESSION, type PreviewData } from "../data/previewState";
 
 interface AppContextType {
   // Navigation & View
@@ -136,7 +121,7 @@ interface AppContextType {
   markNotificationRead: (id: string) => void;
   clearAllNotifications: () => void;
   verifyManagerPin: (pin: string) => Staff | null;
-  resetToDemoData: () => void;
+  resetPreviewData: () => void;
 
   // Computed helpers
   lowStockCount: number;
@@ -144,13 +129,14 @@ interface AppContextType {
   unreadNotificationsCount: number;
 }
 
-const STORAGE_PREFIX = "honor_inventory_v2_";
-
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: ReactNode }> = ({
-  children,
+export const AppProvider: React.FC<{ children: ReactNode; initialData?: Partial<PreviewData> }> = ({
+  children, initialData,
 }) => {
+  const [seed] = useState<PreviewData>(() => ({ ...emptyPreviewData(), ...initialData }));
+  // A fresh namespace stops previously published sample records from reappearing.
+  const STORAGE_PREFIX = initialData ? "honor_inventory_v2_" : "honor_preview_empty_v1_";
   // Navigation
   const [activeModule, setActiveModuleState] = useState<ModuleType>(() => {
     const hash = window.location.hash
@@ -203,86 +189,86 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
   // Active Staff & Role
   const [staffList, setStaffList] = useState<Staff[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "staff");
-    return saved ? JSON.parse(saved) : INITIAL_STAFF;
+    return saved ? JSON.parse(saved) : seed.staff;
   });
 
   const [activeStaff, setActiveStaff] = useState<Staff>(() => {
-    return staffList.find((s) => s.role === "OWNER") || staffList[0];
+    return staffList.find((s) => s.role === "OWNER") || staffList[0] || PREVIEW_SESSION;
   });
 
   // Global Location Context
   const [locations, setLocations] = useState<Location[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "locations");
-    return saved ? JSON.parse(saved) : INITIAL_LOCATIONS;
+    return saved ? JSON.parse(saved) : seed.locations;
   });
 
   const [activeLocationId, setActiveLocationIdState] =
-    useState<string>("loc-ikeja");
+    useState<string>(seed.locations[0]?.id || "ALL");
 
   // Products & Variants
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "products");
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    return saved ? JSON.parse(saved) : seed.products;
   });
 
   const [variants, setVariants] = useState<Variant[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "variants");
-    return saved ? JSON.parse(saved) : INITIAL_VARIANTS;
+    return saved ? JSON.parse(saved) : seed.variants;
   });
 
   // Stock Units & Levels
   const [stockUnits, setStockUnits] = useState<StockUnit[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "stock_units");
-    return saved ? JSON.parse(saved) : INITIAL_STOCK_UNITS;
+    return saved ? JSON.parse(saved) : seed.stockUnits;
   });
 
   const [stockLevels, setStockLevels] = useState<StockLevel[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "stock_levels");
-    return saved ? JSON.parse(saved) : INITIAL_STOCK_LEVELS;
+    return saved ? JSON.parse(saved) : seed.stockLevels;
   });
 
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "stock_movements");
-    return saved ? JSON.parse(saved) : INITIAL_MOVEMENTS;
+    return saved ? JSON.parse(saved) : seed.movements;
   });
 
   // Sales & Purchases
   const [sales, setSales] = useState<Sale[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "sales");
-    return saved ? JSON.parse(saved) : INITIAL_SALES;
+    return saved ? JSON.parse(saved) : seed.sales;
   });
 
   const [purchases, setPurchases] = useState<Purchase[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "purchases");
-    return saved ? JSON.parse(saved) : INITIAL_PURCHASES;
+    return saved ? JSON.parse(saved) : seed.purchases;
   });
 
   // Transfers
   const [transfers, setTransfers] = useState<Transfer[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "transfers");
-    return saved ? JSON.parse(saved) : INITIAL_TRANSFERS;
+    return saved ? JSON.parse(saved) : seed.transfers;
   });
 
   // CRM: Customers & Suppliers
   const [customers, setCustomers] = useState<Customer[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "customers");
-    return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
+    return saved ? JSON.parse(saved) : seed.customers;
   });
 
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "suppliers");
-    return saved ? JSON.parse(saved) : INITIAL_SUPPLIERS;
+    return saved ? JSON.parse(saved) : seed.suppliers;
   });
 
   // Notifications & Audit
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "notifications");
-    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+    return saved ? JSON.parse(saved) : seed.notifications;
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + "audit_logs");
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
+    return saved ? JSON.parse(saved) : seed.auditLogs;
   });
 
   // Keep localStorage updated
@@ -1230,27 +1216,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
-  // Reset to initial demo data
-  const resetToDemoData = () => {
+  // Reset to the empty preview; test fixtures are supplied explicitly.
+  const resetPreviewData = () => {
     Object.keys(localStorage)
       .filter((key) => key.startsWith(STORAGE_PREFIX))
       .forEach((key) => localStorage.removeItem(key));
-    setProducts(INITIAL_PRODUCTS);
-    setVariants(INITIAL_VARIANTS);
-    setStockUnits(INITIAL_STOCK_UNITS);
-    setStockLevels(INITIAL_STOCK_LEVELS);
-    setStockMovements(INITIAL_MOVEMENTS);
-    setSales(INITIAL_SALES);
-    setPurchases(INITIAL_PURCHASES);
-    setTransfers(INITIAL_TRANSFERS);
-    setCustomers(INITIAL_CUSTOMERS);
-    setSuppliers(INITIAL_SUPPLIERS);
-    setStaffList(INITIAL_STAFF);
-    setLocations(INITIAL_LOCATIONS);
-    setNotifications(INITIAL_NOTIFICATIONS);
-    setAuditLogs(INITIAL_AUDIT_LOGS);
-    setActiveLocationIdState("loc-ikeja");
-    setActiveStaff(INITIAL_STAFF[0]);
+    setProducts(seed.products);
+    setVariants(seed.variants);
+    setStockUnits(seed.stockUnits);
+    setStockLevels(seed.stockLevels);
+    setStockMovements(seed.movements);
+    setSales(seed.sales);
+    setPurchases(seed.purchases);
+    setTransfers(seed.transfers);
+    setCustomers(seed.customers);
+    setSuppliers(seed.suppliers);
+    setStaffList(seed.staff);
+    setLocations(seed.locations);
+    setNotifications(seed.notifications);
+    setAuditLogs(seed.auditLogs);
+    setActiveLocationIdState(seed.locations[0]?.id || "ALL");
+    setActiveStaff(seed.staff[0] || PREVIEW_SESSION);
   };
 
   return (
@@ -1316,7 +1302,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({
         markNotificationRead,
         clearAllNotifications,
         verifyManagerPin,
-        resetToDemoData,
+        resetPreviewData,
         lowStockCount,
         pendingTransfersCount,
         unreadNotificationsCount,

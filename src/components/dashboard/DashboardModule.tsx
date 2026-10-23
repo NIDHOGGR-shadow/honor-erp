@@ -318,14 +318,14 @@ export const DashboardModule: React.FC = () => {
           </div>
           {rows.length === 0 && (
             <div className="p-12 text-center">
-              <CheckCircle2 className="mx-auto mb-3 h-7 w-7 text-emerald-600" />
+              {products.length === 0 ? <Boxes className="mx-auto mb-3 h-7 w-7 text-zinc-400" /> : <CheckCircle2 className="mx-auto mb-3 h-7 w-7 text-emerald-600" />}
               <p className="font-medium">
-                {query ? "No matching items" : "Stock is looking healthy"}
+                {query ? "No matching items" : products.length === 0 ? "No products yet" : scoped.length === 0 ? "No stock recorded" : "Stock is looking healthy"}
               </p>
               <p className="mt-2 text-sm text-zinc-500">
                 {query
                   ? "Try another item name or SKU."
-                  : "There are no items below their reorder level in this view."}
+                  : products.length === 0 ? "Your inventory starts empty. Add products when you are ready." : scoped.length === 0 ? "Receive stock to start tracking availability." : "There are no items below their reorder level in this view."}
               </p>
             </div>
           )}
@@ -397,6 +397,7 @@ export const DashboardModule: React.FC = () => {
           </button>
         </div>
         <div className="divide-y divide-zinc-100">
+          {movements.length === 0 && <p className="px-6 py-8 text-sm text-zinc-500">No stock movements yet.</p>}
           {movements.map((m) => (
             <div
               key={m.id}

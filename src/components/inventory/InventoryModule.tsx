@@ -811,7 +811,7 @@ export const InventoryModule: React.FC = () => {
               {filteredProducts.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-zinc-400">
-                    No products found matching the current filters.
+                    {products.length === 0 ? "No products yet. Add your first product when you are ready." : "No products found matching the current filters."}
                   </td>
                 </tr>
               ) : (

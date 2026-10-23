@@ -37,13 +37,12 @@ export const TopBar: React.FC = () => {
     setActiveLocationId,
     locations,
     activeStaff,
-    switchStaffRole,
     notifications,
     markNotificationRead,
     clearAllNotifications,
     unreadNotificationsCount,
     setIsGlobalSearchOpen,
-    resetToDemoData,
+    resetPreviewData,
     isMobileMenuOpen,
     setIsMobileMenuOpen,
   } = useApp();
@@ -315,7 +314,7 @@ export const TopBar: React.FC = () => {
                 {activeStaff.name}
               </div>
               <div className="text-[10px] text-zinc-500 uppercase">
-                {activeStaff.role}
+                {activeStaff.id === "preview-session" ? "Not signed in" : activeStaff.role}
               </div>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
@@ -333,7 +332,7 @@ export const TopBar: React.FC = () => {
                 </div>
                 <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 rounded-md">
                   <ShieldCheck className="w-3 h-3" />
-                  Role: {activeStaff.role}
+                  Role: {activeStaff.id === "preview-session" ? "Not signed in" : activeStaff.role}
                 </div>
               </div>
 
@@ -351,42 +350,17 @@ export const TopBar: React.FC = () => {
 
                 <button
                   onClick={() => {
-                    resetToDemoData();
+                    resetPreviewData();
                     setIsUserMenuOpen(false);
                   }}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-amber-700 hover:bg-amber-50 text-left font-medium"
                 >
                   <RotateCcw className="w-4 h-4 text-amber-600" />
-                  <span>Reset Demo Data</span>
+                  <span>Reset empty preview</span>
                 </button>
               </div>
 
-              {/* Role Switcher in User Menu */}
-              <div className="px-3 py-2 border-t border-zinc-100 text-[11px] text-zinc-500">
-                <div className="font-semibold text-zinc-700 mb-1">
-                  Preview role (demo):
-                </div>
-                <div className="grid grid-cols-2 gap-1">
-                  {(["OWNER", "MANAGER", "SALES", "INVENTORY"] as const).map(
-                    (r) => (
-                      <button
-                        key={r}
-                        onClick={() => {
-                          switchStaffRole(r);
-                          setIsUserMenuOpen(false);
-                        }}
-                        className={`px-2 py-1 rounded text-[10px] font-semibold text-left ${
-                          activeStaff.role === r
-                            ? "bg-emerald-800 text-white"
-                            : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                        }`}
-                      >
-                        {r}
-                      </button>
-                    ),
-                  )}
-                </div>
-              </div>
+
             </div>
           )}
         </div>

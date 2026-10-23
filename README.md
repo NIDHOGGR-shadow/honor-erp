@@ -4,7 +4,7 @@ Inventory control with a connected staff workspace and customer storefront. One 
 
 Public product preview: https://honor-inventory-preview.zippyduck7.chatgpt.site
 
-The public preview uses fictional records stored in each visitor's browser. It does not provide shared stock, customer accounts or payment collection. Build this static preview with `VITE_PUBLIC_PREVIEW=true npm run build`. Leave that flag false for the connected application. See [the product roadmap](docs/PRODUCT_ROADMAP.md) for the launch sequence.
+The public preview starts empty and adds no products or sample business records. Any preview changes stay in that browser. It does not provide shared stock, customer accounts or payment collection. Build this static preview with `VITE_PUBLIC_PREVIEW=true npm run build`. Leave that flag false for the connected application. See [the product roadmap](docs/PRODUCT_ROADMAP.md) for the launch sequence.
 
 This implementation adapts Samuel's `srdataml-droid/Store-` frontend at commit `87f907442c428533d668858c815bdf33f23553c0`. No BIGGS code or private business records were reused.
 
@@ -17,7 +17,7 @@ This implementation adapts Samuel's `srdataml-droid/Store-` frontend at commit `
 - Customer shop, cart, checkout reservations, order tracking and configured collection locations.
 - Paystack and Stripe hosted-checkout adapters with signed events, durable processing, amount/currency/reference verification and idempotent fulfilment.
 - Paid-order fulfilment and inspected line returns that reuse the original serial unit.
-- Responsive staff dashboard and Next.js public storefront, plus the original fictional browser demo at `/demo`.
+- Responsive staff dashboard and Next.js public storefront, plus an empty browser preview at `/demo`. Test fixtures live under `tests/fixtures` and are not imported by the running app.
 
 This is a first implementation for review, not a running production deployment. Managed identity, merchant accounts and email require credentials and external acceptance testing. Payment simulations and fictional seed data are development-only. Shipping, automatic refunds, partial transfer receipts, purchase approvals, stock-count sessions, ML forecasts and private file uploads are not implemented.
 
@@ -30,13 +30,7 @@ python scripts/configure_dev.py
 docker compose -f compose.dev.yaml up --build
 ```
 
-In another terminal, create fictional stock and choose the local administrator password:
-
-```sh
-docker compose -f compose.dev.yaml exec api .venv/bin/python -m honor.cli seed-demo --email your-email@example.test
-```
-
-Open `http://localhost:8000/workspace` and sign in with that account. The fictional shop is `http://localhost:8000/shop/honor-demo`. It explicitly simulates payments and collects no money. Do not seed a real company with demonstration records. Credentials are generated locally; there is no built-in administrator password.
+Open `http://localhost:8000/workspace`, register with your email and chosen password, then create the company. Its inventory starts empty. Add locations and products only when you are ready. Do not run the development fixture seeder for Honor setup. There is no built-in administrator account or password. Production registration requires configured Supabase identity and email; the local development adapter and payment simulation collect no money and must not be deployed as production authentication.
 
 ## Develop separately
 

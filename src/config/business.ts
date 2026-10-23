@@ -7,12 +7,12 @@ export interface BusinessProfile {
   receiptFooter: string;
   warrantyNotice: string;
 }
-export const BUSINESS_KEY = "honor_inventory_v2_business";
+export const BUSINESS_KEY = "honor_preview_empty_v1_business";
 const defaults: BusinessProfile = {
-  name: "Honor Demo Retail",
+  name: "Honor",
   rcNumber: "",
   tin: "",
-  address: "Example company address",
+  address: "",
   receiptHeader: "HONOR",
   receiptFooter: "Thank you for your purchase.",
   warrantyNotice: "Warranty terms are shown on your product receipt.",

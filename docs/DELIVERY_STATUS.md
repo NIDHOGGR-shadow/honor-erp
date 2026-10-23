@@ -33,3 +33,9 @@ Provision the isolated Supabase project and restricted runtime database role; co
 Private file uploads; real-time subscriptions instead of periodic refresh; cursor pagination and import staging; operational stock counts and persisted approvals; purchasing and partial/discrepancy transfer receipt; fully connected in-store POS; shipping/carrier integration; automated monetary refunds and refund reconciliation; inventory valuation/accounting; evaluated demand forecasting and an optional open-source language-model assistant.
 
 The first customer workflow is collection from a designated location. A return record is not a completed payment refund. Forecast recommendations are not fabricated from the small fictional seed dataset. The original browser-only demonstration at `/demo` remains clearly labelled and separate from connected stock.
+
+## Empty preview update
+
+At Samuel's request, the public preview now starts with no products, stock, sales, purchases, transfers, customers, suppliers, staff, locations, notifications or audit records. Prior browser sample storage is not read by the new preview namespace. Reset returns to empty state. The displayed preview session is not an account and has no password. Sample fixtures have moved into tests and are not imported by the runtime. All 14 frontend tests, typecheck and the production build pass; the new regression opens every empty module and checks that legacy sample products do not reappear.
+
+Supabase was discovered as an available integration but is not yet connected to this session. No actual Honor admin identity, password, company data or provider secret has been created. The next prerequisite is to connect Supabase, select/create an isolated Honor project, configure hosted auth/database and API/worker deployment, then create the verified administrator without seeding products. The customer UI brief is in GEMINI_CUSTOMER_BRIEF.md; production identity and payments remain integration work.
