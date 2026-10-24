@@ -184,12 +184,14 @@ def validate_grants(db, company_id, role, ids):
     return ids
 
 
-def create_app(settings=None, sessions=None):
+def create_app(settings=None, sessions=None, route_class=None):
     settings = settings or get_settings()
     engine, factory = database(settings.database_url) if sessions is None else (None, sessions)
     app = FastAPI(
         title="Honor Inventory API", version="0.1.0", docs_url="/api/docs", openapi_url="/api/openapi.json"
     )
+    if route_class is not None:
+        app.router.route_class = route_class
     app.state.sessions, app.state.settings = factory, settings
     app.state.engine = engine
     app.add_middleware(

@@ -1,0 +1,5 @@
+{
+  "test_secret": "isolated compatibility fixture; never a production secret",
+  "plaintext": "isolated synthetic identity tokens",
+  "token": "gAAAAABq3GJzLSJyfmFUlmOsdYzZOovUOtLu4d43vom2EWCZFg5cU3mon1wh1Kgc-igKIlU160g7TpAEO99-WHBF5Bp7JNFdfbimO_1WvP9jaohNlIySUBb_RUljh1NSgUkJoq2TWCh7"
+}
