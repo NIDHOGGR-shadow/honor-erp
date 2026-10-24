@@ -2,6 +2,8 @@
 
 Date: 23 October 2026. This runbook describes the first online implementation, not a claim that production resources exist.
 
+For the current project-access blocker, empty-database SQL installer and API/worker Blueprint, follow [the activation sequence](ACTIVATION.md).
+
 ## Local development
 
 `python scripts/configure_dev.py` creates an ignored root `.env` with random database/session secrets, local development identity and explicit simulated payments. It refuses to overwrite an existing file. The Docker Compose development stack includes PostgreSQL 17, a migration job, the API/dashboard and an outbox worker. The database volume survives container restarts. Stop it with `docker compose -f compose.dev.yaml down`; do not add `--volumes` unless deliberately deleting its records.
