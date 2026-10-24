@@ -2,6 +2,39 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import worker from "../deploy/cloudflare/worker.mjs";
 
+test("Cloudflare serves workspace routes with security headers without treating API errors as HTML", async () => {
+  const paths: string[] = [];
+  const env = {
+    ASSETS: {
+      async fetch(request: Request) {
+        const path = new URL(request.url).pathname;
+        paths.push(path);
+        return path === "/index.html"
+          ? new Response("<html>Honor</html>", { headers: { "Content-Type": "text/html" } })
+          : new Response("Not found", { status: 404 });
+      },
+    },
+  };
+  const page = await worker.fetch(new Request("https://honor.test/workspace"), env);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /Honor/);
+  assert.deepEqual(paths, ["/workspace", "/index.html"]);
+  assert.equal(page.headers.get("X-Frame-Options"), "DENY");
+  assert.equal(page.headers.get("Referrer-Policy"), "no-referrer");
+
+  paths.length = 0;
+  const missing = await worker.fetch(new Request("https://honor.test/missing.js"), env);
+  assert.equal(missing.status, 404);
+  assert.deepEqual(paths, ["/missing.js"]);
+
+  paths.length = 0;
+  const api = await worker.fetch(new Request("https://honor.test/api/v1/me"), env);
+  assert.equal(api.status, 503);
+  assert.deepEqual(paths, []);
+  assert.equal(api.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.equal(api.headers.get("Cache-Control"), "no-store");
+});
+
 test("Cloudflare never forwards credentials to an unconfigured or insecure origin", async () => {
   for (const origin of [
     undefined,

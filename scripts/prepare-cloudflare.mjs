@@ -3,6 +3,10 @@ if (process.env.VITE_PUBLIC_PREVIEW === "true")
   throw new Error(
     "Build the connected workspace for Cloudflare; remove VITE_PUBLIC_PREVIEW.",
   );
+if (process.argv.includes("--workers")) {
+  console.log("Cloudflare Workers assets ready in dist. The API must be connected separately.");
+  process.exit(0);
+}
 await copyFile(
   new URL("../deploy/cloudflare/worker.mjs", import.meta.url),
   new URL("../dist/_worker.js", import.meta.url),

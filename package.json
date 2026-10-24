@@ -16,7 +16,10 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "check": "npm run lint && npm test && npm run build",
     "dev:storefront": "npm run dev --workspace @honor/storefront",
-    "build:storefront": "npm run build --workspace @honor/storefront"
+    "build:storefront": "npm run build --workspace @honor/storefront",
+    "build:workers": "npm run build && node scripts/prepare-cloudflare.mjs --workers",
+    "deploy:workers": "wrangler deploy --config wrangler.workers.jsonc",
+    "preview:workers": "wrangler versions upload --config wrangler.workers.jsonc"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
@@ -35,6 +38,7 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "wrangler": "4.152.0"
   }
 }

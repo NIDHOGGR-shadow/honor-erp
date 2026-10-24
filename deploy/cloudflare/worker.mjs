@@ -1,5 +1,5 @@
-// Cloudflare Pages advanced mode. The inventory API stays on its PostgreSQL-capable host.
-export default {
+// Shared Pages/Workers frontend gateway. The inventory API is configured separately.
+const gateway = {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/")) {
@@ -59,5 +59,17 @@ export default {
     } catch {
       return unavailable();
     }
+  },
+};
+
+export default {
+  async fetch(request, env) {
+    const response = await gateway.fetch(request, env);
+    const secured = new Response(response.body, response);
+    secured.headers.set("X-Content-Type-Options", "nosniff");
+    secured.headers.set("Referrer-Policy", "no-referrer");
+    secured.headers.set("X-Frame-Options", "DENY");
+    secured.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    return secured;
   },
 };
