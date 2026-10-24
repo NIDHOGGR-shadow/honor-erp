@@ -9,7 +9,9 @@ test("unconfigured staff entry renders server-side without browser globals or ac
     React.createElement(Workspace, { configured: false, shopUrl: "/" }),
   );
   assert.match(html, /Staff sign-in/);
-  assert.match(html, /Staff sign-in is not available yet/);
+  assert.match(html, /Workspace setup is in progress/);
+  assert.match(html, /<fieldset disabled=""/);
+  assert.match(html, /Show password/);
   assert.match(html, /<button disabled=""[^>]*>Sign in to workspace/);
   assert.match(html, /href="\/"/);
   assert.doesNotMatch(html, /Opening your workspace|Shared company workspace|Stock updates from your company records/);

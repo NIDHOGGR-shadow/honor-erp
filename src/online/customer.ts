@@ -144,6 +144,8 @@ export function customerApi(base: string, slug: string) {
       ),
     login: (email: string, password: string) =>
       api.send<Customer>("/auth/login", { email, password }),
+    exchange: (accessToken: string, refreshToken: string) =>
+      api.send("/auth/exchange", { access_token: accessToken, refresh_token: refreshToken }),
     register: (name: string, email: string, password: string) =>
       api.send<{ message: string }>("/auth/register", {
         name,

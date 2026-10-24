@@ -34,3 +34,35 @@ test("public catalogue renders product and price in initial server HTML", () => 
   assert.match(html, /Available for collection/);
   assert.doesNotMatch(html, /Opening the collection/);
 });
+
+test("an unconfigured shop has an honest launch page and a working staff entry", () => {
+  const html = renderToStaticMarkup(React.createElement(Storefront, { slug: "", configured: false }));
+  assert.match(html, /Our online shop is getting ready/);
+  assert.match(html, /Opening soon/);
+  assert.match(html, /href="\/workspace"/);
+  assert.doesNotMatch(html, /This shop is not available yet|Loading the collection|Search products/);
+});
+
+test("account access does not depend on a merchant catalogue being configured", () => {
+  const html = renderToStaticMarkup(React.createElement(Storefront, {
+    slug: "", configured: false, accountConfigured: true, initialSearch: "view=login",
+  }));
+  assert.match(html, /Email address/);
+  assert.doesNotMatch(html, /fieldset disabled|Account access is still being connected/);
+});
+
+test("unconnected account forms cannot collect credentials for a disabled sign-in", () => {
+  const html = renderToStaticMarkup(React.createElement(Storefront, {
+    slug: "", configured: false, initialSearch: "view=signup",
+  }));
+  assert.match(html, /Account access is still being connected/);
+  assert.match(html, /<fieldset disabled=""/);
+});
+
+test("collection page does not show an endless loader when no shop is configured", () => {
+  const html = renderToStaticMarkup(React.createElement(Storefront, {
+    slug: "", configured: false, initialSearch: "view=locations",
+  }));
+  assert.match(html, /Collection details are coming soon/);
+  assert.doesNotMatch(html, /Loading collection details/);
+});

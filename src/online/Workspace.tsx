@@ -19,6 +19,8 @@ import {
   CircleHelp,
   ClipboardList,
   ExternalLink,
+  Eye,
+  EyeOff,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -44,6 +46,7 @@ import {
   Product,
 } from "./api";
 import { Badge, Brand, Empty, Field, Modal } from "./ui";
+import { readAuthCallback } from "./authCallback";
 import {
   blankWorkspace as blank,
   canOpenWorkspacePage,
@@ -338,21 +341,18 @@ export default function Workspace({
     return () => clearInterval(interval);
   }, [refresh, !!me, busy]);
   useEffect(() => {
-    if (!configured || recoveryToken) return;
-    const tokens = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    if (tokens.has("access_token") && tokens.has("refresh_token")) {
-      const access = tokens.get("access_token"),
-        token = tokens.get("refresh_token");
-      window.history.replaceState(
-        {},
-        "",
-        window.location.pathname + window.location.search,
-      );
-      publicApi
-        .send("/auth/exchange", { access_token: access, refresh_token: token })
-        .then(() => refresh())
-        .catch((e) => setError(e.message));
+    if (recoveryToken) return;
+    const callback = readAuthCallback(window.location.hash);
+    if (!callback) return;
+    window.history.replaceState({}, "", window.location.pathname + window.location.search);
+    if (callback.kind === "error") { setError(callback.message); return; }
+    if (!configured) {
+      setError("Your email link was received. Sign in once workspace setup is complete.");
+      return;
     }
+    publicApi.send("/auth/exchange", { access_token: callback.accessToken, refresh_token: callback.refreshToken })
+      .then(() => refresh())
+      .catch((e) => setError(e.message));
   }, [publicApi, configured, recoveryToken]);
   function exitRecovery() {
     const search = new URLSearchParams(window.location.search);
@@ -447,7 +447,10 @@ export default function Workspace({
           <h1 className="text-xl font-semibold">Your workspace starts here.</h1>
           <p className="text-sm leading-6 text-zinc-500">
             Accept your company invitation, or create a workspace for a business
-            you administer.
+            you administer. Creating a workspace makes you its company administrator.
+          </p>
+          <p className="rounded-xl bg-emerald-50 p-4 text-xs leading-6 text-emerald-900">
+            Start with your business details. Then add a location, your products and opening stock.
           </p>
           {new URLSearchParams(window.location.search).get("invite") && (
             <button
@@ -2144,7 +2147,7 @@ function CompanyForm({
           className="online-input"
         />
       </Field>
-      <Field label="Store address name · lowercase words separated by hyphens">
+      <Field label="Shop link name">
         <input
           required
           name="slug"
@@ -2152,7 +2155,11 @@ function CompanyForm({
           maxLength={80}
           pattern="[a-z0-9]+(-[a-z0-9]+)*"
           className="online-input"
+          placeholder="your-shop-name"
+          autoCapitalize="none"
+          spellCheck={false}
         />
+        <span className="block text-xs font-normal leading-5 text-zinc-500">Use lowercase words separated by hyphens. This becomes your public shop address.</span>
       </Field>
       <Field label="Selling currency">
         <select
@@ -2211,6 +2218,8 @@ function SignIn({
   );
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  useEffect(() => { setShowPassword(false); }, [mode]);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!configured || busy) return;
@@ -2292,7 +2301,7 @@ function SignIn({
           </h2>
           <p className="mt-4 text-sm leading-6 text-zinc-500">
             {mode === "register"
-              ? "Create your account, then accept your company's invitation."
+              ? "Create your account to set up a business or accept your company's invitation."
               : mode === "recover"
                 ? "Enter your staff email to receive password recovery instructions."
                 : mode === "reset"
@@ -2302,10 +2311,10 @@ function SignIn({
           {!configured && (
             <p
               role="status"
+              id="workspace-setup-status"
               className="mt-5 rounded-lg bg-amber-50 p-3 text-xs leading-6 text-amber-800"
             >
-              Staff sign-in is not available yet. Please check back soon or
-              contact your company administrator.
+              Workspace setup is in progress. Account access will open when the connection is ready. If you already have an account, keep your existing sign-in details.
             </p>
           )}
           {development && (
@@ -2329,7 +2338,8 @@ function SignIn({
               {message}
             </p>
           )}
-          <form onSubmit={submit} className="mt-8 space-y-5">
+          <form onSubmit={submit} className="mt-8 space-y-5" aria-describedby={!configured ? "workspace-setup-status" : undefined}>
+            <fieldset disabled={!configured || busy} className="space-y-5">
             {mode === "register" && (
               <Field label="Your name">
                 <input
@@ -2356,17 +2366,22 @@ function SignIn({
             )}
             {mode !== "recover" && (
               <Field label={mode === "reset" ? "New password" : "Password"}>
+                <div className="relative">
                 <input
                   required
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   maxLength={256}
                   minLength={mode === "register" || mode === "reset" ? 12 : 1}
                   autoComplete={
                     mode === "login" ? "current-password" : "new-password"
                   }
-                  className="online-input"
+                  className="online-input pr-12"
                 />
+                <button type="button" className="absolute right-2 top-2 p-2" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+                </div>
               </Field>
             )}
             <button
@@ -2384,6 +2399,7 @@ function SignIn({
                       : "Send recovery email"}
               <ArrowRight size={15} />
             </button>
+            </fieldset>
           </form>
           <div className="mt-6 flex justify-between gap-4 text-xs">
             <button

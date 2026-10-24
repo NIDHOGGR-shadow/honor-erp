@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -28,6 +28,7 @@ import {
   type ShopView,
 } from "./customer";
 import { Brand, Field } from "./ui";
+import { readAuthCallback } from "./authCallback";
 
 type Props = {
   slug: string;
@@ -36,6 +37,7 @@ type Props = {
   staffUrl?: string;
   initialSearch?: string;
   configured?: boolean;
+  accountConfigured?: boolean;
 };
 const message = (error: unknown) =>
   error instanceof Error
@@ -52,14 +54,15 @@ export default function Storefront({
   staffUrl = "/workspace",
   initialSearch = "",
   configured = true,
+  accountConfigured = configured,
 }: Props) {
   const api = useMemo(() => customerApi(apiBase, slug), [apiBase, slug]);
   const [route, setRoute] = useState(() => readRoute(initialSearch));
   const [catalogue, setCatalogue] = useState(initial);
   const [loading, setLoading] = useState(!initial && configured);
-  const [catalogueError, setCatalogueError] = useState(
-    configured ? "" : "This shop is not available yet. Please check back soon.",
-  );
+  const [catalogueError, setCatalogueError] = useState("");
+  const [catalogueMissing, setCatalogueMissing] = useState(!configured);
+  const profileGeneration = useRef(0);
   const [cart, setCart] = useState<Cart>({});
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [history, setHistory] = useState<Order[] | null>(null);
@@ -97,23 +100,30 @@ export default function Storefront({
     setCatalogueError("");
     try {
       setCatalogue(await api.catalogue());
+      setCatalogueMissing(false);
     } catch (e) {
-      setCatalogueError(message(e));
+      if (e instanceof ApiError && e.status === 404) {
+        setCatalogue(undefined);
+        setCatalogueMissing(true);
+      } else setCatalogueError("The collection could not be loaded. Please try again in a moment.");
     } finally {
       setLoading(false);
     }
   }, [api, configured]);
   const loadProfile = useCallback(async () => {
-    if (!configured) return;
+    if (!accountConfigured) return;
+    const generation = ++profileGeneration.current;
     setProfileError("");
     try {
-      setCustomer(await api.profile());
+      const profile = await api.profile();
+      if (generation === profileGeneration.current) setCustomer(profile);
     } catch (e) {
+      if (generation !== profileGeneration.current) return;
       setCustomer(null);
       if (!(e instanceof ApiError && e.status === 401))
         setProfileError("Account services are unavailable. Please try again.");
     }
-  }, [api, configured]);
+  }, [api, accountConfigured]);
   const applyOrder = useCallback(
     (next: Order) => {
       setOrder(next);
@@ -147,7 +157,7 @@ export default function Storefront({
       const id =
         new URLSearchParams(window.location.search).get("order") ||
         sessionStorage.getItem(currentOrderSlot);
-      if (id && configured) {
+      if (id && accountConfigured) {
         const key = sessionStorage.getItem("honor:order:" + id) || "";
         setOrderKey(key);
         loadOrder(id, key).catch((e) => setError(message(e)));
@@ -163,7 +173,7 @@ export default function Storefront({
     cartSlot,
     currentOrderSlot,
     loadOrder,
-    configured,
+    accountConfigured,
   ]);
   useEffect(() => {
     const sync = () => {
@@ -175,8 +185,24 @@ export default function Storefront({
     return () => window.removeEventListener("popstate", sync);
   }, []);
   useEffect(() => {
+    const callback = readAuthCallback(window.location.hash);
+    if (!callback) return;
+    // Remove credentials from the address bar even when the API is not yet
+    // connected. They are never put in localStorage or sessionStorage.
+    window.history.replaceState({}, "", window.location.pathname + window.location.search);
+    if (callback.kind === "error") { setError(callback.message); return; }
+    if (!accountConfigured) {
+      setNotice("Your email link was received. Account access will be available when the shop finishes setup.");
+      return;
+    }
+    api.exchange(callback.accessToken, callback.refreshToken)
+      .then(async () => { await loadProfile(); navigate("account"); })
+      .catch((e) => setError(message(e)));
+  }, [api, accountConfigured, loadProfile]);
+  useEffect(() => {
     setHistory(null);
     if (route.view !== "account" || !customer) return;
+    if (!slug) { setHistory([]); return; }
     let active = true;
     api
       .orders()
@@ -189,7 +215,7 @@ export default function Storefront({
     return () => {
       active = false;
     };
-  }, [api, route.view, customer]);
+  }, [api, route.view, customer, slug]);
   useEffect(() => {
     if (!order || !["RESERVED", "PAID"].includes(order.status)) return;
     const timer = setInterval(
@@ -327,7 +353,7 @@ export default function Storefront({
     const form = e.currentTarget;
     const data = new FormData(form);
     run(async () => {
-      if (!configured) throw new Error("Sign-in is not available yet.");
+      if (!accountConfigured) throw new Error("Account access is still being connected. Please try again later.");
       const email = String(data.get("email"));
       if (route.view === "recover")
         setNotice((await api.recover(email)).message);
@@ -595,7 +621,7 @@ export default function Storefront({
         Skip to content
       </a>
       <div className="bg-zinc-900 px-4 py-2.5 text-center text-xs text-zinc-200">
-        Collection from the store · Stock is held after a successful reservation
+        {catalogueMissing ? "Honor · Inventory, in order" : "Collection from the store · Stock is held after a successful reservation"}
       </div>
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto] items-center gap-x-6 gap-y-4 px-5 py-5 sm:px-8 lg:grid-cols-[auto_1fr_auto] lg:gap-x-8">
@@ -661,7 +687,34 @@ export default function Storefront({
         )}
         {activeView === "shop" && (
           <>
-            <div className="mb-8">
+            {catalogueMissing ? (
+              <section className="honor-shop-welcome" aria-labelledby="shop-welcome-title">
+                <div>
+                  <p className="honor-eyebrow">Honor</p>
+                  <span className="mt-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-800">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" /> Opening soon
+                  </span>
+                  <h1 id="shop-welcome-title" className="mt-5 max-w-xl text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
+                    Our online shop is getting ready.
+                  </h1>
+                  <p className="mt-5 max-w-lg text-sm leading-7 text-zinc-600">
+                    The collection is being prepared. Once the shop opens, you can check availability, place an order and collect from the store.
+                  </p>
+                  <a href={staffUrl} className="honor-text-button mt-7">
+                    Open staff workspace <ArrowRight size={16} />
+                  </a>
+                </div>
+                <div className="honor-shop-preview" aria-label="What you can do when the shop opens">
+                  <Package size={32} strokeWidth={1.5} className="mb-7 text-emerald-700" />
+                  <h2 className="text-lg font-semibold">A clearer way to shop</h2>
+                  <ul className="mt-6 space-y-5 text-sm text-zinc-600">
+                    <li className="flex items-center gap-3"><Search size={18} className="shrink-0 text-emerald-700" /> Check product availability</li>
+                    <li className="flex items-center gap-3"><MapPin size={18} className="shrink-0 text-emerald-700" /> Collect from the right location</li>
+                    <li className="flex items-center gap-3"><ShieldCheck size={18} className="shrink-0 text-emerald-700" /> Keep your order and receipt together</li>
+                  </ul>
+                </div>
+              </section>
+            ) : <div className="mb-8">
               <p className="honor-eyebrow">
                 {catalogue?.company.name || "Honor"}
               </p>
@@ -672,7 +725,7 @@ export default function Storefront({
                 Find what you need, check availability and collect from the
                 store.
               </p>
-            </div>
+            </div>}
             {catalogueError && (
               <div
                 role="alert"
@@ -689,7 +742,7 @@ export default function Storefront({
                 )}
               </div>
             )}
-            {(catalogue || loading) && (
+            {((catalogue && products.length > 0) || loading) && (
               <div className="mb-8 flex flex-wrap items-end gap-4 rounded-xl border border-zinc-200 bg-white p-4">
                 <div className="min-w-48 flex-1">
                   <Field label="Search products">
@@ -1105,6 +1158,12 @@ export default function Storefront({
               onSubmit={auth}
               className="honor-panel mt-8 space-y-5 p-6 sm:p-8"
             >
+              {!accountConfigured && (
+                <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+                  Account access is still being connected. You can return here to sign in when setup is complete.
+                </p>
+              )}
+              <fieldset disabled={!accountConfigured || busy} className="space-y-5">
               {activeView === "signup" && (
                 <Field label="Your name">
                   <input
@@ -1162,7 +1221,7 @@ export default function Storefront({
               )}
               <button
                 className="honor-button w-full"
-                disabled={busy || !configured}
+                disabled={busy || !accountConfigured}
               >
                 {busy
                   ? "Please wait…"
@@ -1172,14 +1231,7 @@ export default function Storefront({
                       ? "Send recovery link"
                       : "Sign in"}
               </button>
-              {!configured && (
-                <p className="text-sm text-zinc-500">
-                  Sign-in is not available yet.
-                </p>
-              )}
-              <p className="text-center text-sm text-zinc-500">
-                Google sign-in is not available yet.
-              </p>
+              </fieldset>
             </form>
             <div className="mt-6 flex flex-wrap justify-between gap-3 text-sm">
               {nav(
@@ -1245,6 +1297,8 @@ export default function Storefront({
                       ? "Order history could not be loaded."
                       : "Loading your orders…"}
                   </p>
+                ) : !slug ? (
+                  empty("Your account is ready", "Your order history will appear here once the shop opens and you place an order.")
                 ) : !history.length ? (
                   empty(
                     "No orders yet",
@@ -1309,6 +1363,7 @@ export default function Storefront({
                   });
                 }}
               >
+                <fieldset disabled={!accountConfigured || busy} className="space-y-5">
                 <Field label="Order reference">
                   <input
                     className={input}
@@ -1337,10 +1392,11 @@ export default function Storefront({
                 </p>
                 <button
                   className="online-secondary"
-                  disabled={busy || !configured}
+                  disabled={busy || !accountConfigured}
                 >
                   Check order
                 </button>
+                </fieldset>
               </form>
             </details>
             {order && orderKey && (
@@ -1367,7 +1423,9 @@ export default function Storefront({
               Your order is assigned to a location that can supply every item.
               Confirm the address on your order before travelling.
             </p>
-            {catalogueError ? (
+            {catalogueMissing ? (
+              empty("Collection details are coming soon", "The store will publish its collection locations when the shop opens.")
+            ) : catalogueError ? (
               <p role="alert" className="text-sm text-amber-900">
                 Collection details are unavailable right now.
               </p>
@@ -1396,7 +1454,7 @@ export default function Storefront({
       </main>
       <footer className="mt-12 border-t border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-5 px-5 py-8 text-sm text-zinc-500 sm:px-8">
-          <p>{catalogue?.company.name || "Honor"} · Powered by Honor</p>
+          <p>{catalogue?.company.name && catalogue.company.name !== "Honor" ? `${catalogue.company.name} · Powered by Honor` : "Honor · Inventory, in order"}</p>
           <a
             className="underline underline-offset-4 hover:text-zinc-900"
             href={staffUrl}
