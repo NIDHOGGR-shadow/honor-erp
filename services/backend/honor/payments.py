@@ -11,11 +11,12 @@ from sqlalchemy.dialects.postgresql import insert
 from .inventory import audit, confirm_payment, release
 from .models import Company, Order, Outbox, PaymentAttempt, ProviderEvent, now, uid
 from .security import aware, digest
+from .transport import request as http_request
 
 
 def external(method, url, secret, **kwargs):
     try:
-        response = httpx.request(
+        response = http_request(
             method,
             url,
             headers={"Authorization": f"Bearer {secret}", **kwargs.pop("headers", {})},

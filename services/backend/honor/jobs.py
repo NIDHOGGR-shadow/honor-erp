@@ -2,7 +2,6 @@ import html
 import time
 from datetime import timedelta
 
-import httpx
 from sqlalchemy import or_, select
 
 from .config import get_settings
@@ -11,6 +10,7 @@ from .inventory import expire
 from .models import Order, Outbox, now
 from .payments import process_event
 from .logging import logger
+from .transport import request as http_request
 
 log = logger("honor.jobs")
 
@@ -18,7 +18,8 @@ log = logger("honor.jobs")
 def send_email(settings, recipient, subject, content):
     if not settings.resend_api_key or not settings.email_from:
         raise RuntimeError("EMAIL_NOT_CONFIGURED")
-    response = httpx.post(
+    response = http_request(
+        "POST",
         "https://api.resend.com/emails",
         headers={"Authorization": "Bearer " + settings.resend_api_key},
         json={"from": settings.email_from, "to": [recipient], "subject": subject, "html": content},

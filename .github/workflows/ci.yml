@@ -53,3 +53,20 @@ jobs:
       - run: uv run ruff check honor tests
       - run: uv run python -m honor.bootstrap --check
       - run: uv run pytest -q
+  python-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: npm ci
+      - run: pip install uv==0.13.4
+      - run: npm run build:api-worker
+      - run: uv run --frozen pywrangler deploy --dry-run
+        working-directory: build/cloudflare-api
+      - run: node scripts/test-python-worker.mjs

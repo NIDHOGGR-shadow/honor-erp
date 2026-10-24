@@ -12,6 +12,7 @@ from fastapi import HTTPException, Request, Response
 from sqlalchemy import select
 
 from .models import CompanySessionBlock, Identity, LoginSession, Membership, LocationGrant, now, uid
+from .transport import request as http_request
 
 hasher = PasswordHasher()
 COOKIE = "honor_session"
@@ -34,7 +35,7 @@ def provider_call(settings, method, path, *, token=None, payload=None):
     if token:
         headers["Authorization"] = f"Bearer {token}"
     try:
-        result = httpx.request(
+        result = http_request(
             method,
             settings.supabase_url.rstrip("/") + "/auth/v1" + path,
             headers=headers,
