@@ -401,4 +401,10 @@ ALTER FUNCTION honor.protect_history() SET search_path = pg_catalog;
 
 UPDATE honor.alembic_version SET version_num='0004' WHERE honor.alembic_version.version_num = '0003';
 
+-- Running upgrade 0004 -> 0005
+
+ALTER TABLE honor.identities ADD COLUMN must_change_password BOOLEAN DEFAULT false NOT NULL;
+
+UPDATE honor.alembic_version SET version_num='0005' WHERE honor.alembic_version.version_num = '0004';
+
 COMMIT;

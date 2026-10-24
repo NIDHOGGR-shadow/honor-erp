@@ -5,7 +5,18 @@ from sqlalchemy import select, text
 from .config import get_settings
 from .db import database
 from .inventory import audit, movement
-from .models import Balance, Company, Identity, Location, Membership, Product, SerialUnit, uid
+from .models import (
+    Balance,
+    Company,
+    Identity,
+    Location,
+    LoginSession,
+    Membership,
+    Product,
+    SerialUnit,
+    now,
+    uid,
+)
 from .security import hasher
 
 
@@ -124,15 +135,51 @@ def reconcile(sessions):
         }
 
 
+def provision_honor(sessions, email, currency="NGN"):
+    """Operator-only first business setup. Requires an already verified Honor login."""
+    with sessions() as db:
+        db.execute(text("SELECT pg_advisory_xact_lock(481025)"))
+        if db.scalar(select(Company.id).limit(1)):
+            raise RuntimeError("Honor already has a business; public store creation is disabled")
+        user = db.scalar(select(Identity).where(Identity.email == email.strip().lower()))
+        if not user or not db.scalar(
+            select(LoginSession.id)
+            .where(
+                LoginSession.user_id == user.id,
+                LoginSession.revoked.is_(False),
+                LoginSession.expires_at > now(),
+            )
+            .limit(1)
+        ):
+            raise RuntimeError(
+                "The first administrator must verify email and sign in to Honor before provisioning"
+            )
+        company = Company(id=uid(), name="Honor", slug="honor", currency=currency, timezone="Africa/Lagos")
+        db.add(company)
+        db.flush()
+        db.add(Membership(company_id=company.id, user_id=user.id, role="ADMIN"))
+        audit(db, company.id, user.id, "company.provisioned")
+        db.commit()
+        return company.id
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["seed-demo", "reconcile", "cleanup"])
+    parser.add_argument("action", choices=["seed-demo", "provision-honor", "reconcile", "cleanup"])
     parser.add_argument("--email")
     parser.add_argument("--currency", default="NGN")
     args = parser.parse_args()
     settings = get_settings()
     _, sessions = database(settings.database_url)
-    if args.action == "seed-demo":
+    if args.action == "provision-honor":
+        if not args.email:
+            parser.error("provision-honor requires --email for the verified first administrator")
+        from .schemas import CompanyInput
+
+        validated = CompanyInput(name="Honor", slug="honor", currency=args.currency)
+        company_id = provision_honor(sessions, args.email, validated.currency)
+        print("Honor business provisioned:", company_id, "No products or stock added.")
+    elif args.action == "seed-demo":
         email = args.email or input("Demo administrator email: ")
         password = os.environ.get("HONOR_DEMO_PASSWORD") or getpass.getpass(
             "Choose a demo password (12+ characters): "

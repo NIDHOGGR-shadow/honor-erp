@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     auth_provider: str = "supabase"
     supabase_url: str = ""
     supabase_publishable_key: str = ""
+    supabase_secret_key: str = ""
     app_origin: str = "http://localhost:3000"
     shop_origin: str = ""
     allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"

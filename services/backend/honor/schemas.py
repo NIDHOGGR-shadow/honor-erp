@@ -29,6 +29,16 @@ class PasswordChange(Input):
     new_password: str = Field(min_length=12, max_length=256)
 
 
+class EmailChange(Input):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
+    email: str = Field(min_length=3, max_length=254, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+    current_password: str = Field(min_length=1, max_length=256)
+
+
+class InvitationActivation(Registration):
+    token: str = Field(min_length=32, max_length=200)
+
+
 class Recovery(Input):
     email: str = Field(min_length=3, max_length=254, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
@@ -123,6 +133,12 @@ class MemberInput(Input):
 
 class InviteInput(MemberInput):
     email: str = Field(min_length=3, max_length=254, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+class StaffAccount(InviteInput):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
+    name: str = Field(min_length=1, max_length=120)
+    temporary_password: str = Field(min_length=12, max_length=256)
 
 
 class AcceptInvite(Input):

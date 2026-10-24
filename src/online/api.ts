@@ -155,6 +155,7 @@ export type Me = {
   companies: Company[];
   mfa: boolean;
   factors: { id: string; status: string }[];
+  must_change_password?: boolean;
 };
 export type Product = {
   id: string;

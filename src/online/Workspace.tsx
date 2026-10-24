@@ -38,7 +38,6 @@ import {
 import {
   ApiError,
   client,
-  Company,
   Location,
   Me,
   money,
@@ -47,6 +46,8 @@ import {
 } from "./api";
 import { Badge, Brand, Empty, Field, Modal } from "./ui";
 import { readAuthCallback } from "./authCallback";
+import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
+import PasswordSetup from "./PasswordSetup";
 import {
   blankWorkspace as blank,
   canOpenWorkspacePage,
@@ -241,6 +242,7 @@ export default function Workspace({
   shopUrl?: string;
 }) {
   const publicApi = useMemo(() => client(apiBase), [apiBase]);
+  const inviteToken = new URLSearchParams(initialSearch || (typeof window === "undefined" ? "" : window.location.search)).get("invite") || "";
   const [recoveryToken, setRecoveryToken] = useState(() =>
     new URLSearchParams(
       initialSearch || (typeof window === "undefined" ? "" : window.location.search),
@@ -423,6 +425,8 @@ export default function Workspace({
         }}
         configured={configured}
         recoveryToken={recoveryToken}
+        inviteToken={inviteToken}
+        apiBase={apiBase}
         onExitRecovery={exitRecovery}
         onRecoveryComplete={() => {
           clearSession();
@@ -434,6 +438,7 @@ export default function Workspace({
         setError={setError}
       />
     );
+  if (me.must_change_password) return <PasswordSetup api={publicApi} complete={refresh} signOut={signOut} />;
   if (!company)
     return (
       <div className="online-app grid min-h-screen place-items-center bg-[#f7f8fa] p-6">
@@ -444,13 +449,10 @@ export default function Workspace({
               {error}
             </p>
           )}
-          <h1 className="text-xl font-semibold">Your workspace starts here.</h1>
+          <ConnectionNotice />
+          <h1 className="text-xl font-semibold">Your Honor access</h1>
           <p className="text-sm leading-6 text-zinc-500">
-            Accept your company invitation, or create a workspace for a business
-            you administer. Creating a workspace makes you its company administrator.
-          </p>
-          <p className="rounded-xl bg-emerald-50 p-4 text-xs leading-6 text-emerald-900">
-            Start with your business details. Then add a location, your products and opening stock.
+            Honor accounts are assigned by the business administrator. Accept your invitation below, or ask your administrator to assign your role and locations.
           </p>
           {new URLSearchParams(window.location.search).get("invite") && (
             <button
@@ -471,16 +473,6 @@ export default function Workspace({
               Accept company invitation
             </button>
           )}
-          <CompanyForm
-            onSubmit={(e) =>
-              formAction(
-                e,
-                (f) => publicApi.send("/companies", Object.fromEntries(f)),
-                "Company created",
-              )
-            }
-            busy={busy}
-          />
           <button
             className="text-xs text-zinc-500"
             onClick={signOut}
@@ -622,6 +614,7 @@ export default function Workspace({
   );
   return (
     <div className="online-app min-h-screen bg-[#f7f8fa] text-zinc-900">
+      <ConnectionNotice />
       {mobile && (
         <button
           aria-label="Close navigation"
@@ -878,7 +871,7 @@ export default function Workspace({
                 onClick={() => setModal({ kind: "invite" })}
               >
                 <Plus size={15} />
-                Invite a person
+                Add staff
               </button>
             )}
             {page === "Transfers" && stockStaff && (
@@ -1393,6 +1386,19 @@ export default function Workspace({
           {page === "Security" && (
             <div className="grid gap-6 xl:grid-cols-2">
               <section className="online-panel p-6">
+                <h2 className="text-sm font-semibold">Change your email</h2>
+                <p className="mt-3 text-xs leading-6 text-zinc-500">Current email: {me.email}. Confirm the change from your inboxes. Your staff ID and activity stay linked; administrators receive an account update without your password.</p>
+                <form className="mt-6 space-y-5" onSubmit={e => formAction(e, async f => {
+                  const result = await publicApi.send("/auth/email", Object.fromEntries(f));
+                  setNotice(result.message);
+                  return result;
+                }, "Email change requested. Check your current and new inboxes.")}>
+                  <Field label="New email address"><input required type="email" name="email" autoComplete="email" maxLength={254} className="online-input" /></Field>
+                  <Field label="Current password"><input required type="password" name="current_password" autoComplete="current-password" maxLength={256} className="online-input" /></Field>
+                  <button disabled={busy} className="honor-button">Request email change</button>
+                </form>
+              </section>
+              <section className="online-panel p-6">
                 <h2 className="text-sm font-semibold">Change your password</h2>
                 <form
                   className="mt-6 space-y-5"
@@ -1653,7 +1659,7 @@ export default function Workspace({
               transfer: "Dispatch a transfer",
               adjustment: "Record an adjustment",
               return: "Record an inspected return",
-              invite: "Invite a person",
+              invite: "Assign staff access",
               member: "Edit company access",
             }[modal.kind] || "Stock operation"
           }
@@ -1717,16 +1723,18 @@ export default function Workspace({
                         body,
                         "PATCH",
                       );
-                    const result = await api.send("/invitations", {
+                    const temporary = f.get("account_method") === "password";
+                    const result = await api.send(temporary ? "/team" : "/invitations", {
                       ...body,
                       email: f.get("email"),
+                      ...(temporary ? { name: f.get("name"), temporary_password: f.get("temporary_password") } : {}),
                     });
                     if (result.development_link)
                       setInvitationLink(result.development_link);
                     return result;
                   },
                   modal.kind === "invite"
-                    ? "Invitation queued for email delivery"
+                    ? "Staff access saved. Any verification or invitation email is queued for delivery."
                     : "Company access updated",
                 )
               }
@@ -2068,8 +2076,17 @@ function MemberForm({
   busy: boolean;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
 }) {
+  const [method, setMethod] = useState("invitation");
   return (
     <form className="space-y-5" onSubmit={onSubmit}>
+      {!member && <>
+        <Field label="Account setup"><select name="account_method" value={method} onChange={e => setMethod(e.target.value)} className="online-input"><option value="invitation">Send a private invitation</option><option value="password">Create with a temporary password</option></select></Field>
+        {method === "password" && <>
+          <Field label="Staff name"><input required name="name" autoComplete="off" maxLength={120} className="online-input" /></Field>
+          <Field label="Temporary password"><input required name="temporary_password" type="password" autoComplete="new-password" minLength={12} maxLength={256} className="online-input" /></Field>
+          <p className="text-xs leading-6 text-zinc-500">Share this temporary password privately. Staff must replace it before accessing records. It cannot be retrieved later.</p>
+        </>}
+      </>}
       {!member && (
         <Field label="Person's email">
           <input
@@ -2120,73 +2137,12 @@ function MemberForm({
         Active access
       </label>
       <button disabled={busy} className="honor-button w-full">
-        {busy ? "Saving…" : member ? "Update access" : "Send invitation"}
+        {busy ? "Saving…" : member ? "Update access" : method === "password" ? "Create staff account" : "Send invitation"}
       </button>
       <p className="text-[10px] leading-6 text-zinc-400">
-        Invited people set their own password. Suspension blocks company access
+        Staff choose their private password. Suspension blocks company access
         and preserves their historical activity.
       </p>
-    </form>
-  );
-}
-function CompanyForm({
-  onSubmit,
-  busy,
-}: {
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-  busy: boolean;
-}) {
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <Field label="Company name">
-        <input
-          required
-          name="name"
-          minLength={2}
-          maxLength={120}
-          className="online-input"
-        />
-      </Field>
-      <Field label="Shop link name">
-        <input
-          required
-          name="slug"
-          minLength={3}
-          maxLength={80}
-          pattern="[a-z0-9]+(-[a-z0-9]+)*"
-          className="online-input"
-          placeholder="your-shop-name"
-          autoCapitalize="none"
-          spellCheck={false}
-        />
-        <span className="block text-xs font-normal leading-5 text-zinc-500">Use lowercase words separated by hyphens. This becomes your public shop address.</span>
-      </Field>
-      <Field label="Selling currency">
-        <select
-          name="currency"
-          required
-          className="online-input"
-          defaultValue=""
-        >
-          <option value="" disabled>
-            Select currency
-          </option>
-          {["NGN", "USD", "GBP", "EUR", "GHS", "ZAR", "KES"].map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Company timezone">
-        <input
-          required
-          name="timezone"
-          defaultValue={Intl.DateTimeFormat().resolvedOptions().timeZone}
-          className="online-input"
-        />
-      </Field>
-      <button disabled={busy} className="honor-button w-full">
-        Create company workspace
-      </button>
     </form>
   );
 }
@@ -2195,6 +2151,8 @@ function SignIn({
   refresh,
   configured,
   recoveryToken,
+  inviteToken,
+  apiBase,
   onExitRecovery,
   onRecoveryComplete,
   shopUrl,
@@ -2206,6 +2164,8 @@ function SignIn({
   refresh: () => Promise<void>;
   configured: boolean;
   recoveryToken: string;
+  inviteToken: string;
+  apiBase: string;
   onExitRecovery: () => void;
   onRecoveryComplete: () => void;
   shopUrl?: string;
@@ -2213,20 +2173,23 @@ function SignIn({
   error: string;
   setError: (e: string) => void;
 }) {
-  const [mode, setMode] = useState<"login" | "register" | "recover" | "reset">(
+  const [mode, setMode] = useState<"login" | "activate" | "recover" | "reset">(
     recoveryToken ? "reset" : "login",
   );
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const pending = useAuthSubmission(apiBase, configured, mode);
   useEffect(() => { setShowPassword(false); }, [mode]);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!configured || busy) return;
+    if (busy) return;
+    const form = event.currentTarget;
+    const values = Object.fromEntries(new FormData(form));
+    await pending.submit(async () => {
     setBusy(true);
     setError("");
     setMessage("");
-    const values = Object.fromEntries(new FormData(event.currentTarget));
     try {
       if (mode === "reset") {
         const result = await api.send("/auth/recovery-password", {
@@ -2241,17 +2204,19 @@ function SignIn({
         await refresh();
       } else {
         const result = await api.send(
-          mode === "register" ? "/auth/register" : "/auth/recover",
-          values,
+          mode === "activate" ? "/auth/activate-invitation" : "/auth/recover",
+          mode === "activate" ? { ...values, token: inviteToken } : values,
         );
         setMessage(result.message);
-        if (mode === "register") setMode("login");
+        if (mode === "activate") setMode("login");
       }
+      form.reset();
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
+    });
   }
   return (
     <div className="online-app grid min-h-screen bg-[#f6f8f5] lg:grid-cols-2">
@@ -2277,22 +2242,22 @@ function SignIn({
           Company-controlled access · Traceable stock · Connected orders
         </p>
       </section>
-      <section className="flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-sm">
+      <section className="honor-staff-entry flex items-center justify-center px-5 py-7 sm:p-12">
+        <div className="honor-auth w-full max-w-sm">
           {shopUrl && (
             <a href={shopUrl} className="honor-text-button mb-8">
               <ArrowLeft size={15} /> Back to shop
             </a>
           )}
-          <div className="mb-12 lg:hidden">
+          <div className="mb-7 lg:hidden">
             <Brand />
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-700">
-            Honor staff workspace
+            Honor · Staff &amp; administration
           </p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-            {mode === "register"
-              ? "Your own account."
+            {mode === "activate"
+              ? "Activate your staff access"
               : mode === "recover"
                 ? "Recover your access."
                 : mode === "reset"
@@ -2300,21 +2265,22 @@ function SignIn({
                   : "Staff sign-in"}
           </h2>
           <p className="mt-4 text-sm leading-6 text-zinc-500">
-            {mode === "register"
-              ? "Create your account to set up a business or accept your company's invitation."
+            {mode === "activate"
+              ? "Use the email your administrator invited and choose your private password."
               : mode === "recover"
                 ? "Enter your staff email to receive password recovery instructions."
                 : mode === "reset"
                   ? "Choose a new password for your staff account."
-                  : "Use your staff email and password. Your company administrator controls your access."}
+                  : "Sign in with the account assigned by your Honor administrator."}
           </p>
+          <ConnectionNotice />
           {!configured && (
             <p
               role="status"
               id="workspace-setup-status"
-              className="mt-5 rounded-lg bg-amber-50 p-3 text-xs leading-6 text-amber-800"
+              className="honor-auth-status mt-4"
             >
-              Workspace setup is in progress. Account access will open when the connection is ready. If you already have an account, keep your existing sign-in details.
+              Honor’s connection is being set up. You can fill in your details; sign-in is pending connection.
             </p>
           )}
           {development && (
@@ -2338,9 +2304,10 @@ function SignIn({
               {message}
             </p>
           )}
-          <form onSubmit={submit} className="mt-8 space-y-5" aria-describedby={!configured ? "workspace-setup-status" : undefined}>
-            <fieldset disabled={!configured || busy} className="space-y-5">
-            {mode === "register" && (
+          {inviteToken && mode === "login" && <p className="honor-auth-status mt-4">You have an invitation. Sign in with your invited email, or activate your assigned account below.</p>}
+          <form key={mode} onSubmit={submit} onChange={pending.cancel} className="mt-6 space-y-5" aria-describedby={!configured ? "workspace-setup-status" : undefined}>
+            <fieldset disabled={busy} className="space-y-5">
+            {mode === "activate" && (
               <Field label="Your name">
                 <input
                   required
@@ -2373,7 +2340,7 @@ function SignIn({
                   aria-label={mode === "reset" ? "New password" : "Password"}
                   type={showPassword ? "text" : "password"}
                   maxLength={256}
-                  minLength={mode === "register" || mode === "reset" ? 12 : 1}
+                  minLength={mode === "activate" || mode === "reset" ? 12 : 1}
                   autoComplete={
                     mode === "login" ? "current-password" : "new-password"
                   }
@@ -2386,15 +2353,15 @@ function SignIn({
               </Field>
             )}
             <button
-              disabled={busy || !configured}
+              disabled={busy || pending.waiting}
               className="honor-button w-full"
             >
               {busy
                 ? "Please wait…"
                 : mode === "login"
                   ? "Sign in to workspace"
-                  : mode === "register"
-                    ? "Create account"
+                  : mode === "activate"
+                    ? "Activate assigned account"
                     : mode === "reset"
                       ? "Reset password"
                       : "Send recovery email"}
@@ -2402,29 +2369,36 @@ function SignIn({
             </button>
             </fieldset>
           </form>
-          <div className="mt-6 flex justify-between gap-4 text-xs">
+          <SubmissionStatus {...pending} />
+          <div className="honor-auth-links mt-4 flex flex-wrap justify-between gap-x-4 text-sm">
+            {mode !== "login" && (
             <button
               className="text-emerald-700"
               onClick={() => {
                 if (mode === "reset") onExitRecovery();
-                setMode(mode === "login" ? "register" : "login");
+                setMode("login");
                 setError("");
+                setMessage("");
               }}
             >
-              {mode === "login" ? "Create an account" : "Back to sign in"}
+              Back to staff sign-in
             </button>
+            )}
             {mode === "login" && (
               <button
-                className="text-zinc-400"
+                className="text-emerald-700"
                 onClick={() => {
                   setMode("recover");
                   setError("");
+                  setMessage("");
                 }}
               >
                 Forgot password?
               </button>
             )}
+            {mode === "login" && inviteToken && <button className="text-emerald-700" onClick={() => { setMode("activate"); setError(""); setMessage(""); }}>Activate assigned account</button>}
           </div>
+          {mode === "login" && <p className="mt-4 text-xs leading-6 text-zinc-500">Need access? Ask your Honor administrator. Staff accounts cannot be created here.</p>}
         </div>
       </section>
     </div>

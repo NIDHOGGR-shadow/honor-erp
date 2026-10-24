@@ -13,6 +13,7 @@ from sqlalchemy import select
 from .models import CompanySessionBlock, Identity, LoginSession, Membership, LocationGrant, now, uid
 from .transport import request as http_request
 
+
 @lru_cache(maxsize=1)
 def _password_hasher():
     # Production uses Supabase Auth; only local development needs Argon2.
@@ -66,6 +67,38 @@ def provider_call(settings, method, path, *, token=None, payload=None):
     return result.json()
 
 
+def admin_create_identity(settings, *, email, name, password):
+    if not settings.supabase_secret_key:
+        raise HTTPException(503, "Administrator account creation is not connected. Use an invitation.")
+    headers = {"apikey": settings.supabase_secret_key}
+    # New sb_secret keys belong in apikey; only legacy JWT service keys use Bearer.
+    if not settings.supabase_secret_key.startswith("sb_secret_"):
+        headers["Authorization"] = "Bearer " + settings.supabase_secret_key
+    try:
+        result = http_request(
+            "POST",
+            settings.supabase_url.rstrip("/") + "/auth/v1/admin/users",
+            headers=headers,
+            json={
+                "email": email,
+                "password": password,
+                "email_confirm": False,
+                "user_metadata": {"name": name},
+            },
+            timeout=15,
+        )
+    except httpx.HTTPError:
+        raise HTTPException(
+            503, "Identity service unavailable. Check account status before retrying."
+        ) from None
+    if result.status_code >= 400:
+        raise HTTPException(409, "Account could not be created. Use an invitation for an existing account.")
+    profile = result.json()
+    if not profile.get("id") or profile.get("email", "").lower() != email:
+        raise HTTPException(502, "Identity service returned an unexpected account")
+    return profile
+
+
 def verified_user(settings, token):
     user = provider_call(settings, "GET", "/user", token=token)
     if not user.get("email_confirmed_at") or not user.get("email"):
@@ -110,6 +143,10 @@ def identify(db, settings, email, password):
         )
         db.add(user)
         db.flush()
+    else:
+        from .accounts import sync_verified_email
+
+        sync_verified_email(db, user, profile)
     return user, tokens
 
 
@@ -145,6 +182,12 @@ def current(db, request: Request):
     user = db.get(Identity, active.user_id)
     if not user:
         raise HTTPException(401, "Sign in to continue")
+    if user.must_change_password and request.url.path not in {
+        "/api/v1/me",
+        "/api/v1/auth/password",
+        "/api/v1/auth/logout",
+    }:
+        raise HTTPException(403, "Replace your temporary password before using Honor")
     return user, active
 
 

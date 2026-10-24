@@ -160,6 +160,35 @@ button:disabled {
 .online-app button:disabled {
   opacity: 0.5;
 }
+.honor-offline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: #fff8e6;
+  color: #854d0e;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.honor-auth .honor-offline { margin-top: 16px; border-radius: 10px; }
+.honor-auth-status {
+  color: #065f46;
+  background: #f0f8f3;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.honor-auth-status button { min-height: 40px; }
+.honor-auth .online-input { min-height: 48px; font-size: 16px; }
+.honor-auth .honor-button { min-height: 48px; font-size: 14px; }
+.honor-auth-links button, .honor-auth-links a { min-height: 44px; display: inline-flex; align-items: center; }
+.honor-auth-links { align-items: center; }
+@media (max-width: 639px) {
+  .honor-staff-entry { align-items: flex-start; }
+  .honor-auth h2 { font-size: 28px; line-height: 1.25; }
+}
 @media print {
   aside,
   nav,

@@ -4,6 +4,7 @@ import time
 from datetime import timedelta
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -15,6 +16,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from . import inventory, payments, receipts, schemas as S
+from .accounts import notify_account_change, sync_verified_email
 from .config import get_settings
 from .db import database, session
 from .logging import logger
@@ -43,6 +45,7 @@ from .models import (
 )
 from .security import (
     COOKIE,
+    admin_create_identity,
     Scope,
     aware,
     cipher,
@@ -228,6 +231,7 @@ def create_app(settings=None, sessions=None, route_class=None):
         response.headers["X-Request-Id"] = request.state.request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["X-Frame-Options"] = "DENY"
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
         return response
@@ -289,6 +293,9 @@ def create_app(settings=None, sessions=None, route_class=None):
     @app.post("/api/v1/auth/register")
     def register(data: S.Registration, request: Request, db: Db):
         rate_limit(db, request, "register", data.email, limit=5)
+        return register_identity(data, db)
+
+    def register_identity(data, db, redirect=""):
         if settings.auth_provider == "development":
             if not db.scalar(select(Identity.id).where(Identity.email == data.email.lower())):
                 db.add(
@@ -304,10 +311,24 @@ def create_app(settings=None, sessions=None, route_class=None):
         provider_call(
             settings,
             "POST",
-            "/signup",
+            "/signup" + ("?" + urlencode({"redirect_to": redirect}) if redirect else ""),
             payload={"email": data.email, "password": data.password, "data": {"name": data.name}},
         )
         return {"message": "Check your inbox to verify your email, then sign in"}
+
+    @app.post("/api/v1/auth/activate-invitation")
+    def activate_invitation(data: S.InvitationActivation, request: Request, db: Db):
+        rate_limit(db, request, "activate", data.email, limit=5)
+        item = db.scalar(select(Invitation).where(Invitation.token_hash == digest(data.token)))
+        if (
+            not item
+            or item.accepted
+            or aware(item.expires_at) <= now()
+            or item.email != data.email.strip().lower()
+        ):
+            raise HTTPException(400, "Ask your administrator for a current invitation for this email")
+        redirect = settings.app_origin.rstrip("/") + "/workspace?" + urlencode({"invite": data.token})
+        return register_identity(data, db, redirect)
 
     @app.post("/api/v1/auth/exchange")
     def exchange(request: Request, response: Response, db: Db, payload: dict):
@@ -337,6 +358,8 @@ def create_app(settings=None, sessions=None, route_class=None):
             )
             db.add(user)
             db.flush()
+        else:
+            sync_verified_email(db, user, checked)
         start_session(db, settings, user, tokens, response)
         return {"signed_in": True}
 
@@ -360,10 +383,13 @@ def create_app(settings=None, sessions=None, route_class=None):
         return {"verified": True}
 
     @app.post("/api/v1/auth/password")
-    def change_password(data: S.PasswordChange, request: Request, db: Db):
+    def change_password(data: S.PasswordChange, request: Request, response: Response, db: Db):
         user, active = current(db, request)
         rate_limit(db, request, "password", user.id, limit=5)
         identify(db, settings, user.email, data.current_password)
+        if data.new_password == data.current_password:
+            raise HTTPException(422, "Choose a different private password")
+        tokens = None
         if settings.auth_provider == "development":
             user.password_hash = hasher.hash(data.new_password)
         else:
@@ -381,8 +407,29 @@ def create_app(settings=None, sessions=None, route_class=None):
             .values(revoked=True)
         )
         active.verified_at = now()
-        db.commit()
+        user.must_change_password = False
+        active.revoked = True
+        notify_account_change(db, user, "password_changed")
+        start_session(db, settings, user, tokens, response)
         return {"message": "Password changed; other Honor sessions signed out"}
+
+    @app.post("/api/v1/auth/email")
+    def change_email(data: S.EmailChange, request: Request, db: Db):
+        user, active = current(db, request)
+        rate_limit(db, request, "email", user.id, limit=3)
+        identify(db, settings, user.email, data.current_password)
+        email = data.email.strip().lower()
+        if email == user.email:
+            raise HTTPException(422, "Enter your new email address")
+        if settings.auth_provider != "supabase":
+            raise HTTPException(400, "Verified email changes require managed identity")
+        tokens = provider_tokens(db, settings, active)
+        provider_call(settings, "PUT", "/user", token=tokens["access_token"], payload={"email": email})
+        notify_account_change(db, user, "email_change_requested", new_email=email)
+        db.commit()
+        return {
+            "message": "Check your current and new inboxes to confirm the change. Your staff ID stays the same."
+        }
 
     @app.post("/api/v1/auth/recover")
     def recover(data: S.Recovery, request: Request, db: Db):
@@ -403,6 +450,10 @@ def create_app(settings=None, sessions=None, route_class=None):
         provider_call(
             settings, "PUT", "/user", token=tokens["access_token"], payload={"password": data.new_password}
         )
+        user = db.get(Identity, profile["id"])
+        if user:
+            user.must_change_password = False
+            notify_account_change(db, user, "password_reset")
         db.execute(update(LoginSession).where(LoginSession.user_id == profile["id"]).values(revoked=True))
         db.commit()
         return {"message": "Password reset. Sign in with your new password."}
@@ -452,6 +503,8 @@ def create_app(settings=None, sessions=None, route_class=None):
         if settings.auth_provider == "supabase" and active.provider_tokens:
             tokens = provider_tokens(db, settings, active)
             profile = provider_call(settings, "GET", "/user", token=tokens["access_token"])
+            if profile.get("email_confirmed_at") and profile.get("id") == user.id:
+                sync_verified_email(db, user, profile)
             factors = [{"id": f["id"], "status": f.get("status")} for f in profile.get("factors", [])]
             db.commit()
         return {
@@ -462,19 +515,12 @@ def create_app(settings=None, sessions=None, route_class=None):
             "mfa": active.mfa,
             "factors": factors,
             "session_id": active.id,
+            "must_change_password": user.must_change_password,
         }
 
     @app.post("/api/v1/companies", status_code=201)
     def create_company(data: S.CompanyInput, request: Request, db: Db):
-        user, _ = current(db, request)
-        rate_limit(db, request, "company", user.id, limit=3, period=86400)
-        company = Company(id=uid(), **data.model_dump())
-        db.add(company)
-        db.flush()
-        db.add(Membership(company_id=company.id, user_id=user.id, role="ADMIN"))
-        inventory.audit(db, company.id, user.id, "company.created")
-        db.commit()
-        return company_json(company)
+        raise HTTPException(403, "Honor is one business. Contact its administrator for staff access.")
 
     @app.get("/api/v1/locations")
     def locations(request: Request, db: Db):
@@ -733,6 +779,49 @@ def create_app(settings=None, sessions=None, route_class=None):
                 }
             )
         return result
+
+    @app.post("/api/v1/team", status_code=201)
+    def create_staff_account(data: S.StaffAccount, request: Request, db: Db):
+        scope = Scope(db, request)
+        scope.sensitive(settings)
+        rate_limit(db, request, "staff-create", scope.user.id, limit=10)
+        ids = validate_grants(db, scope.company_id, data.role, data.location_ids)
+        email = data.email.strip().lower()
+        db.scalar(select(Company).where(Company.id == scope.company_id).with_for_update())
+        if db.scalar(select(Identity.id).where(Identity.email == email)):
+            raise HTTPException(409, "Account already exists. Send an invitation instead.")
+        if settings.auth_provider == "development":
+            user = Identity(
+                id=uid(),
+                email=email,
+                name=data.name,
+                password_hash=hasher.hash(data.temporary_password),
+                must_change_password=True,
+            )
+        else:
+            profile = admin_create_identity(
+                settings, email=email, name=data.name, password=data.temporary_password
+            )
+            user = Identity(id=profile["id"], email=email, name=data.name, must_change_password=True)
+        db.add(user)
+        db.flush()
+        db.add(Membership(company_id=scope.company_id, user_id=user.id, role=data.role, active=data.active))
+        db.flush()
+        for location_id in ids:
+            db.add(LocationGrant(company_id=scope.company_id, user_id=user.id, location_id=location_id))
+        if settings.auth_provider == "supabase":
+            db.add(
+                Outbox(company_id=scope.company_id, kind="STAFF_CONFIRMATION_EMAIL", payload={"email": email})
+            )
+        inventory.audit(
+            db, scope.company_id, scope.user.id, "member.created", user_id=user.id, role=data.role
+        )
+        db.commit()
+        return {
+            "id": user.id,
+            "must_change_password": True,
+            "email_status": "QUEUED" if settings.auth_provider == "supabase" else "DEVELOPMENT",
+        }
 
     @app.patch("/api/v1/team/{user_id}")
     def edit_member(user_id: str, data: S.MemberInput, request: Request, db: Db):

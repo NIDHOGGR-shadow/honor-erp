@@ -29,6 +29,7 @@ import {
 } from "./customer";
 import { Brand, Field } from "./ui";
 import { readAuthCallback } from "./authCallback";
+import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
 
 type Props = {
   slug: string;
@@ -75,6 +76,7 @@ export default function Storefront({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const pendingAuth = useAuthSubmission(apiBase, accountConfigured, route.view);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [inStock, setInStock] = useState(false);
@@ -352,8 +354,7 @@ export default function Storefront({
     e.preventDefault();
     const form = e.currentTarget;
     const data = new FormData(form);
-    run(async () => {
-      if (!accountConfigured) throw new Error("Account access is still being connected. Please try again later.");
+    void pendingAuth.submit(() => run(async () => {
       const email = String(data.get("email"));
       if (route.view === "recover")
         setNotice((await api.recover(email)).message);
@@ -371,7 +372,7 @@ export default function Storefront({
         navigate("account");
       }
       form.reset();
-    });
+    }));
   }
   const shown = products
     .filter(
@@ -614,6 +615,7 @@ export default function Storefront({
 
   return (
     <div className="online-app flex min-h-screen flex-col bg-[#fafafa] text-zinc-900">
+      <ConnectionNotice />
       <a
         href="#shop-content"
         className="sr-only focus:not-sr-only focus:block focus:p-4"
@@ -1141,9 +1143,10 @@ export default function Storefront({
           </>
         )}
         {["login", "signup", "recover"].includes(activeView) && (
-          <div className="mx-auto max-w-md">
+          <div className="honor-auth mx-auto max-w-md">
             {back}
-            <h1 className="text-3xl font-semibold">
+            <p className="honor-eyebrow mb-2">Customer account</p>
+            <h1 className="text-2xl font-semibold sm:text-3xl">
               {activeView === "signup"
                 ? "Create your account"
                 : activeView === "recover"
@@ -1151,22 +1154,20 @@ export default function Storefront({
                   : "Welcome back"}
             </h1>
             <p className="mt-3 text-sm leading-6 text-zinc-500">
-              Keep your orders together and make your next visit easier.
+              {activeView === "recover" ? "Enter your email and we’ll send a password recovery link." : activeView === "signup" ? "Create a customer account to keep your orders and receipts together." : "Sign in to view your orders and receipts."}
             </p>
-            <a href={staffUrl} className="honor-text-button mt-3">
-              Open staff workspace <ArrowRight size={15} />
-            </a>
             <form
               key={activeView}
               onSubmit={auth}
-              className="honor-panel mt-8 space-y-5 p-6 sm:p-8"
+              onChange={pendingAuth.cancel}
+              className="honor-panel mt-6 space-y-5 p-5 sm:p-7"
             >
               {!accountConfigured && (
-                <p role="status" className="rounded-xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
-                  Account access is still being connected. You can return here to sign in when setup is complete.
+                <p role="status" className="honor-auth-status">
+                  Account access is being connected. You can fill in your details; submission is pending connection.
                 </p>
               )}
-              <fieldset disabled={!accountConfigured || busy} className="space-y-5">
+              <fieldset disabled={busy} className="space-y-5">
               {activeView === "signup" && (
                 <Field label="Your name">
                   <input
@@ -1226,7 +1227,7 @@ export default function Storefront({
               )}
               <button
                 className="honor-button w-full"
-                disabled={busy || !accountConfigured}
+                disabled={busy || pendingAuth.waiting}
               >
                 {busy
                   ? "Please wait…"
@@ -1237,16 +1238,18 @@ export default function Storefront({
                       : "Sign in"}
               </button>
               </fieldset>
+              <SubmissionStatus {...pendingAuth} />
             </form>
-            <div className="mt-6 flex flex-wrap justify-between gap-3 text-sm">
+            <div className="honor-auth-links mt-4 flex flex-wrap justify-between gap-x-4 text-sm">
               {nav(
-                activeView === "signup" ? "login" : "signup",
+                activeView === "login" ? "signup" : "login",
                 activeView === "signup"
                   ? "Already have an account? Sign in"
-                  : "Create an account",
+                  : activeView === "recover" ? "Back to customer sign-in" : "Create a customer account",
               )}
               {activeView !== "recover" && nav("recover", "Forgot password?")}
             </div>
+            <div className="mt-5 border-t border-zinc-200 pt-4 text-xs text-zinc-500">Honor staff or admin? <a href={staffUrl} className="honor-text-button">Open staff workspace <ArrowRight size={15} /></a></div>
           </div>
         )}
         {activeView === "account" && (

@@ -76,6 +76,18 @@ test("an account without company membership receives no company records or impli
   } finally { globalThis.fetch = original; }
 });
 
+test("temporary-password accounts receive no company data before setting a private password", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { ++calls; return Response.json({ ...profile(), must_change_password: true }); };
+  try {
+    const snapshot = await loadWorkspaceSession("/api/v1", "owned-company");
+    assert.equal(calls, 1);
+    assert.equal(snapshot.companyId, "");
+    assert.ok(Object.values(snapshot.data).every(rows => rows.length === 0));
+  } finally { globalThis.fetch = original; }
+});
+
 test("revoked access or invalid collection responses cannot produce a partial workspace snapshot", async () => {
   const original = globalThis.fetch;
   try {

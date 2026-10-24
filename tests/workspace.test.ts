@@ -9,10 +9,10 @@ test("unconfigured staff entry renders server-side without browser globals or ac
     React.createElement(Workspace, { configured: false, shopUrl: "/" }),
   );
   assert.match(html, /Staff sign-in/);
-  assert.match(html, /Workspace setup is in progress/);
-  assert.match(html, /<fieldset disabled=""/);
+  assert.match(html, /connection is being set up/);
+  assert.doesNotMatch(html, /<fieldset disabled|Create an account|Create account|Create company workspace/);
   assert.match(html, /Show password/);
-  assert.match(html, /<button disabled=""[^>]*>Sign in to workspace/);
+  assert.match(html, /<button class="honor-button w-full">Sign in to workspace/);
   assert.match(html, /href="\/"/);
   assert.doesNotMatch(html, /Opening your workspace|Shared company workspace|Stock updates from your company records/);
 });
@@ -28,6 +28,12 @@ test("staff password recovery can render its deep link before browser hydration"
   assert.match(html, /Choose a new password/);
   assert.match(html, /new-password/);
   assert.doesNotMatch(html, /test-recovery-token|Shared company workspace/);
+});
+
+test("staff activation is offered only with a private invitation and never public store registration", () => {
+  const html = renderToStaticMarkup(React.createElement(Workspace, { configured: false, initialSearch: "invite=" + "a".repeat(43) }));
+  assert.match(html, /Activate assigned account/);
+  assert.doesNotMatch(html, /Create an account|Create company workspace|Set up your store/);
 });
 
 test("configured staff entry waits for a verified session before rendering company records", () => {

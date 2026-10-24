@@ -46,6 +46,7 @@ export async function loadWorkspaceSession(base: string, requestedCompanyId: str
   const me = await client(base).request<Me>("/me");
   if (!validProfile(me))
     throw new ApiError(502, "Your workspace could not be loaded. Please try again.");
+  if (me.must_change_password) return { me, companyId: "", data: blankWorkspace };
   const company = me.companies.find((c) => c.id === requestedCompanyId) || me.companies[0];
   if (!company) return { me, companyId: "", data: blankWorkspace };
 

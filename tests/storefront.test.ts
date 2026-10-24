@@ -48,15 +48,15 @@ test("account access does not depend on a merchant catalogue being configured", 
     slug: "", configured: false, accountConfigured: true, initialSearch: "view=login",
   }));
   assert.match(html, /Email address/);
-  assert.doesNotMatch(html, /fieldset disabled|Account access is still being connected/);
+  assert.doesNotMatch(html, /fieldset disabled|Account access is being connected/);
 });
 
-test("unconnected account forms cannot collect credentials for a disabled sign-in", () => {
+test("unconnected account forms remain editable with an honest connection notice", () => {
   const html = renderToStaticMarkup(React.createElement(Storefront, {
     slug: "", configured: false, initialSearch: "view=signup",
   }));
-  assert.match(html, /Account access is still being connected/);
-  assert.match(html, /<fieldset disabled=""/);
+  assert.match(html, /Account access is being connected/);
+  assert.doesNotMatch(html, /<fieldset disabled/);
 });
 
 test("collection page does not show an endless loader when no shop is configured", () => {

@@ -59,6 +59,25 @@ def run_once(sessions, settings):
                     + html.escape(payload["url"], quote=True)
                     + '">Set up your access</a></p>',
                 )
+            elif kind == "STAFF_CONFIRMATION_EMAIL":
+                from .security import provider_call
+
+                provider_call(
+                    settings, "POST", "/resend", payload={"type": "signup", "email": payload["email"]}
+                )
+            elif kind == "ACCOUNT_SECURITY_EMAIL":
+                send_email(
+                    settings,
+                    payload["email"],
+                    "Honor staff account update",
+                    "<p>Staff ID: "
+                    + html.escape(payload["user_id"])
+                    + "</p><p>Update: "
+                    + html.escape(payload["event"].replace("_", " "))
+                    + "</p><p>"
+                    + html.escape(payload.get("new_email", ""))
+                    + "</p><p>No password is included. Review People &amp; access if this was unexpected.</p>",
+                )
             elif kind == "ORDER_EMAIL":
                 order = db.get(Order, payload["order_id"])
                 send_email(
