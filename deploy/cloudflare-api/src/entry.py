@@ -56,7 +56,7 @@ class Default(WorkerEntrypoint):
                 )
             return await asgi.fetch(app, request, self.env)
 
-    async def scheduled(self, controller, ctx):
+    async def scheduled(self, controller, env, ctx):
         async with _lock:
             app = load_app(self.env)
             sessions, settings = app.state.sessions, app.state.settings
