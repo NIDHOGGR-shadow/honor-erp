@@ -4,6 +4,7 @@ import asyncio
 import time
 
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import SQLAlchemyError
 from workers import Response, WorkerEntrypoint, asgi
 
 from honor.config import Settings
@@ -47,7 +48,7 @@ class Default(WorkerEntrypoint):
         async with _lock:
             try:
                 app = load_app(self.env)
-            except (ValueError, TypeError, AttributeError):
+            except (ValueError, TypeError, AttributeError, SQLAlchemyError):
                 # Configuration and provider errors must not disclose secret values.
                 return Response.from_json(
                     {"detail": "Honor API configuration is incomplete."},
@@ -58,7 +59,10 @@ class Default(WorkerEntrypoint):
 
     async def scheduled(self, controller, env, ctx):
         async with _lock:
-            app = load_app(self.env)
+            try:
+                app = load_app(self.env)
+            except (ValueError, TypeError, AttributeError, SQLAlchemyError):
+                raise RuntimeError("Honor API configuration is incomplete.") from None
             sessions, settings = app.state.sessions, app.state.settings
             with sessions() as db:
                 expire(db)
