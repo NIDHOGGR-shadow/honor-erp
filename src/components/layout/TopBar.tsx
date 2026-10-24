@@ -158,31 +158,33 @@ export const TopBar: React.FC = () => {
     activeStaff.assignedLocationIds.length > 1;
 
   return (
-    <header className="h-16 sticky top-0 z-30 bg-white border-b border-zinc-200/80 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 shadow-xs">
+    <header className="h-16 sticky top-0 z-30 bg-white border-b border-zinc-200/80 px-2 sm:px-4 flex items-center justify-between gap-1 sm:gap-3 shadow-xs">
       {/* Mobile Menu Button + Page Title / Breadcrumb */}
-      <div className="flex items-center min-w-0 gap-2 pr-1">
+      <div className="flex shrink-0 items-center min-w-0 md:shrink md:max-w-[28%]">
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="md:hidden p-2 text-zinc-600 hover:text-zinc-900 rounded-xl hover:bg-zinc-100 transition-colors"
+          className="md:hidden flex h-11 w-11 shrink-0 items-center justify-center text-zinc-600 hover:text-zinc-900 rounded-xl hover:bg-zinc-100 transition-colors"
           title="Toggle navigation menu"
           aria-label="Open menu"
+          aria-expanded={isMobileMenuOpen}
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="text-xs sm:text-sm md:text-base tracking-tight truncate">
+        <div className="hidden md:block text-sm tracking-tight truncate">
           {getBreadcrumbs()}
         </div>
       </div>
 
       {/* Global Search (420px max) */}
-      <div className="flex-1 max-w-[420px] hidden md:block">
+      <div className="min-w-0 flex-1 max-w-[420px] hidden xl:block">
         <button
           onClick={() => setIsGlobalSearchOpen(true)}
+          aria-label="Search Honor"
           className="w-full h-9 px-3 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200 rounded-xl text-left text-xs text-zinc-400 flex items-center justify-between transition-colors shadow-2xs"
         >
-          <div className="flex items-center gap-2">
-            <Search className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Search products, IMEI, customer, receipt...</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <Search className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
+            <span className="truncate">Search products, IMEI, receipts…</span>
           </div>
           <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white text-zinc-500 rounded border border-zinc-200">
             /
@@ -191,29 +193,31 @@ export const TopBar: React.FC = () => {
       </div>
 
       {/* Right Controls: Location Switcher, Notifications, User Profile */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-2 xl:flex-none">
         {/* Mobile search trigger icon */}
         <button
           onClick={() => setIsGlobalSearchOpen(true)}
-          className="md:hidden p-2 text-zinc-500 hover:text-zinc-800 rounded-xl hover:bg-zinc-100"
+          className="xl:hidden flex h-11 w-11 shrink-0 items-center justify-center text-zinc-500 hover:text-zinc-800 rounded-xl hover:bg-zinc-100"
           title="Search"
+          aria-label="Search Honor"
         >
-          <Search className="w-4 h-4" />
+          <Search className="w-5 h-5" />
         </button>
 
         {/* Global Location Switcher */}
-        <div className="relative">
-          <div className="flex items-center bg-zinc-50 border border-zinc-200 rounded-xl px-2.5 py-1.5 text-xs text-zinc-700">
+        <div className="relative min-w-0 flex-1 max-w-52">
+          <div className="flex min-h-11 min-w-0 items-center bg-zinc-50 border border-zinc-200 rounded-xl px-2 text-xs text-zinc-700">
             <MapPin className="w-3.5 h-3.5 text-emerald-700 mr-1.5 shrink-0" />
             <select
               value={activeLocationId}
               onChange={(e) => setActiveLocationId(e.target.value)}
               disabled={!canSwitchLocation}
-              className="bg-transparent font-semibold focus:outline-none cursor-pointer pr-1 disabled:cursor-not-allowed"
+              aria-label="Stock location"
+              className="min-w-0 w-full truncate bg-transparent font-semibold focus:outline-none cursor-pointer py-2 disabled:cursor-not-allowed"
             >
               {canSwitchLocation &&
                 activeStaff.assignedLocationIds.includes("*") && (
-                  <option value="ALL">All company locations</option>
+                  <option value="ALL">All locations</option>
                 )}
               {locations
                 .filter(
@@ -231,13 +235,15 @@ export const TopBar: React.FC = () => {
         </div>
 
         {/* Notifications Bell */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
-            onClick={() => setIsNotifOpen(!isNotifOpen)}
-            className="p-2 text-zinc-500 hover:text-zinc-900 rounded-xl hover:bg-zinc-100 transition-colors relative"
+            onClick={() => { setIsNotifOpen(!isNotifOpen); setIsUserMenuOpen(false); }}
+            className="flex h-11 w-11 items-center justify-center text-zinc-500 hover:text-zinc-900 rounded-xl hover:bg-zinc-100 transition-colors relative"
             title="Notifications Feed"
+            aria-label={unreadNotificationsCount ? `Notifications, ${unreadNotificationsCount} unread` : "Notifications"}
+            aria-expanded={isNotifOpen}
           >
-            <Bell className="w-4 h-4" />
+            <Bell className="w-5 h-5" />
             {unreadNotificationsCount > 0 && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-amber-500 rounded-full ring-2 ring-white" />
             )}
@@ -245,7 +251,7 @@ export const TopBar: React.FC = () => {
 
           {/* Notifications Dropdown Feed */}
           {isNotifOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-zinc-200/90 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+            <div className="fixed top-[68px] left-3 right-3 sm:absolute sm:top-auto sm:left-auto sm:right-0 sm:mt-2 sm:w-96 bg-white rounded-2xl shadow-xl border border-zinc-200/90 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
               <div className="px-4 py-2 border-b border-zinc-100 flex items-center justify-between">
                 <div className="font-bold text-xs text-zinc-900">
                   Notifications
@@ -297,10 +303,12 @@ export const TopBar: React.FC = () => {
         </div>
 
         {/* User Profile Menu */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
-            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-xl hover:bg-zinc-100 transition-colors"
+            onClick={() => { setIsUserMenuOpen(!isUserMenuOpen); setIsNotifOpen(false); }}
+            className="flex min-h-11 min-w-11 items-center justify-center gap-2 px-1 py-1 rounded-xl hover:bg-zinc-100 transition-colors"
+            aria-label="Open account menu"
+            aria-expanded={isUserMenuOpen}
           >
             <div className="w-8 h-8 rounded-xl bg-emerald-800 text-white font-bold flex items-center justify-center text-xs shadow-xs">
               {activeStaff.name
@@ -317,7 +325,7 @@ export const TopBar: React.FC = () => {
                 {activeStaff.id === "preview-session" ? "Not signed in" : activeStaff.role}
               </div>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+            <ChevronDown className="hidden sm:block w-3.5 h-3.5 text-zinc-400" />
           </button>
 
           {/* User Profile Dropdown */}

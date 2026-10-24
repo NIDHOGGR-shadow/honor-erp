@@ -14,8 +14,8 @@ export default function PilotHome() {
     <a href="#pilot-content" className="sr-only focus:not-sr-only focus:block focus:p-4">Skip to presentation</a>
     <header className="border-b border-[#dce6df] bg-white/80">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-8">
-        <a href="/pilot" aria-label="Honor pilot home"><Brand /></a>
-        <nav aria-label="Pilot navigation" className="flex items-center gap-5 text-sm">
+        <a href="/pilot" aria-label="Honor demo home"><Brand /></a>
+        <nav aria-label="Demo navigation" className="flex items-center gap-5 text-sm">
           <a href="/" className="text-zinc-600 hover:text-emerald-800">Customer shop</a>
           <a href="/workspace" className="honor-text-button">Staff sign-in <ArrowUpRight size={15} aria-hidden="true" /></a>
         </nav>
@@ -24,13 +24,13 @@ export default function PilotHome() {
     <main id="pilot-content" className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
       <section aria-labelledby="pilot-title" className="honor-pilot-hero">
         <div>
-          <p className="mb-5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[.15em] text-emerald-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />First pilot · Presentation</p>
+          <p className="mb-5 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[.15em] text-emerald-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />Presentation demo</p>
           <h1 id="pilot-title" className="max-w-xl text-4xl font-medium leading-[1.15] tracking-tight sm:text-5xl">Inventory, in order.<br /><span className="text-[#b9d6b5]">A clearer day at Honor.</span></h1>
           <p className="mt-6 max-w-lg text-sm leading-7 text-emerald-50/75">One place to follow stock, understand each movement and give the right people the right access.</p>
           <a href="/demo#/dashboard" className="mt-8 inline-flex min-h-12 items-center justify-center gap-3 rounded-xl bg-[#d7e8cf] px-6 py-3 text-sm font-semibold text-[#17372d] hover:bg-white">Open inventory walkthrough <ArrowRight size={17} aria-hidden="true" /></a>
           <p className="mt-4 text-xs leading-6 text-emerald-100/65">Interactive browser preview. No sign-in is required for this demonstration.</p>
         </div>
-        <aside className="honor-pilot-summary" aria-label="Pilot scope">
+        <aside className="honor-pilot-summary" aria-label="Demo scope">
           <div className="mb-7 flex items-center gap-3"><Boxes size={23} className="text-[#b9d6b5]" aria-hidden="true" /><span className="text-sm font-semibold">Inventory comes first</span></div>
           {[
             ["Stock visibility", "What is available and where it belongs."],
@@ -60,6 +60,6 @@ export default function PilotHome() {
         <div><h2 className="inline-flex items-center gap-2 text-sm font-semibold"><ShieldCheck size={17} className="text-emerald-700" aria-hidden="true" />Before real business use</h2><p className="mt-3 text-sm leading-7 text-zinc-500">Connect the shared backend, activate the administrator, verify staff invitations and email delivery, then test checkout with the business’s payment provider. No live payments are collected here.</p></div>
       </section>
     </main>
-    <footer className="mx-auto flex w-full max-w-6xl flex-wrap justify-between gap-3 px-5 py-8 text-xs text-zinc-500 sm:px-8"><span>Honor · Inventory, in order</span><span>One business. A focused first pilot.</span></footer>
+    <footer className="mx-auto flex w-full max-w-6xl flex-wrap justify-between gap-3 px-5 py-8 text-xs text-zinc-500 sm:px-8"><span>Honor · Inventory, in order</span><span>One business. A first look at Honor.</span></footer>
   </div>;
 }

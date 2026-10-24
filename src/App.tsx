@@ -149,7 +149,7 @@ const AppContent: React.FC<{presentation?: boolean}> = ({presentation = false}) 
         <TopBar />
 
         {/* Viewport Content Area with mobile bottom padding to prevent nav overlap */}
-        <main className="flex-1 p-4 sm:p-7 lg:p-10 pb-24 md:pb-10 overflow-x-hidden">
+        <main className="honor-workspace-main min-w-0 flex-1 p-4 sm:p-7 lg:p-10">
           <div className="max-w-7xl mx-auto w-full">
             {presentation ? <PresentationGuide /> : (
             <div

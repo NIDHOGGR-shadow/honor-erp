@@ -1463,7 +1463,7 @@ export default function Storefront({
       <footer className="mt-12 border-t border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-5 px-5 py-8 text-sm text-zinc-500 sm:px-8">
           <p>{catalogue?.company.name && catalogue.company.name !== "Honor" ? `${catalogue.company.name} · Powered by Honor` : "Honor · Inventory, in order"}</p>
-          <a href="/pilot" className="underline underline-offset-4 hover:text-zinc-900">View pilot</a>
+          <a href="/pilot" className="underline underline-offset-4 hover:text-zinc-900">View demo</a>
           <a
             className="underline underline-offset-4 hover:text-zinc-900"
             href={staffUrl}

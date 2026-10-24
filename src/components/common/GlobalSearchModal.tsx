@@ -3,7 +3,7 @@
  * Searches products, 15-digit IMEIs, customers, suppliers, sales receipts & POs.
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useId } from "react";
 import { useApp } from "../../context/AppContext";
 import { formatNaira } from "../../utils/formatters";
 import {
@@ -39,6 +39,9 @@ export const GlobalSearchModal: React.FC = () => {
 
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const hintId = useId();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -48,13 +51,13 @@ export const GlobalSearchModal: React.FC = () => {
         !isGlobalSearchOpen &&
         !(
           e.target instanceof HTMLInputElement ||
-          e.target instanceof HTMLTextAreaElement
+          e.target instanceof HTMLTextAreaElement ||
+          e.target instanceof HTMLSelectElement ||
+          (e.target instanceof HTMLElement && e.target.isContentEditable)
         )
       ) {
         e.preventDefault();
         setIsGlobalSearchOpen(true);
-      } else if (e.key === "Escape" && isGlobalSearchOpen) {
-        setIsGlobalSearchOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -62,11 +65,24 @@ export const GlobalSearchModal: React.FC = () => {
   }, [isGlobalSearchOpen, setIsGlobalSearchOpen]);
 
   useEffect(() => {
-    if (isGlobalSearchOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-    } else {
+    if (!isGlobalSearchOpen) {
       setQuery("");
+      return;
     }
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+    inputRef.current?.focus();
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
+    };
   }, [isGlobalSearchOpen]);
 
   if (!isGlobalSearchOpen) return null;
@@ -190,34 +206,52 @@ export const GlobalSearchModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-zinc-950/70 backdrop-blur-xs flex items-start justify-center pt-16 sm:pt-24 p-3 sm:p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl border border-zinc-200/80 w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh]">
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      aria-describedby={hintId}
+      className="honor-search-dialog rounded-2xl shadow-2xl border border-zinc-200/80 bg-white text-zinc-900"
+      onCancel={(event) => { event.preventDefault(); setIsGlobalSearchOpen(false); }}
+      onClick={(event) => { if (event.target === event.currentTarget) setIsGlobalSearchOpen(false); }}
+    >
+      <div className="flex min-h-0 w-full flex-col">
+        <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-2 pb-1">
+          <h2 id={titleId} className="text-sm font-semibold">Search Honor</h2>
+          <button
+            onClick={() => setIsGlobalSearchOpen(false)}
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100"
+            aria-label="Close search"
+          >
+            <span>Close</span><X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
         {/* Search Input Bar */}
-        <div className="p-3 sm:p-4 border-b border-zinc-200/80 flex items-center gap-3 bg-white">
+        <div className="px-4 pb-3 border-b border-zinc-200/80 flex shrink-0 items-center gap-2 bg-white">
           <Search className="w-5 h-5 text-zinc-400 shrink-0" />
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search products, 15-digit IMEI, customers, suppliers, receipts... (Press Esc to close)"
+            placeholder="Product, IMEI or receipt"
+            aria-label="Search products, IMEIs, customers and receipts"
+            aria-describedby={hintId}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full text-sm sm:text-base font-medium bg-transparent focus:outline-none placeholder:text-zinc-400 text-zinc-900"
+            className="min-w-0 flex-1 min-h-11 rounded-md px-1 text-base font-medium bg-transparent placeholder:text-zinc-400 text-zinc-900"
           />
           {query && (
             <button
-              onClick={() => setQuery("")}
-              className="p-1 text-zinc-400 hover:text-zinc-600 rounded-lg"
+              onClick={() => { setQuery(""); inputRef.current?.focus(); }}
+              className="flex h-11 w-11 shrink-0 items-center justify-center text-zinc-500 hover:text-zinc-700 rounded-lg"
+              aria-label="Clear search"
             >
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono bg-zinc-100 text-zinc-500 rounded-md border border-zinc-200">
-            ESC
-          </kbd>
         </div>
+        <p id={hintId} className="shrink-0 px-4 pt-3 text-xs leading-5 text-zinc-500">Search inventory, IMEIs, customers, suppliers and receipts. Enter at least 2 characters.</p>
 
         {/* Results Body */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 divide-y divide-zinc-100">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-4 divide-y divide-zinc-100">
           {/* Exact 15-digit IMEI alert */}
           {exactImeiMatch && (
             <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between">
@@ -391,21 +425,20 @@ export const GlobalSearchModal: React.FC = () => {
             </div>
           )}
 
-          {!hasAnyResults && query.length >= 2 && (
-            <div className="py-12 text-center text-zinc-400 text-xs">
+          {!hasAnyResults && trimmed.length >= 2 && (
+            <div role="status" className="py-6 text-center text-zinc-500 text-xs break-words">
               No matching products, IMEIs, customers, or receipts found for "
               {query}".
             </div>
           )}
 
-          {query.length < 2 && (
-            <div className="py-10 text-center text-zinc-400 text-xs">
-              Type at least 2 characters to search across inventory, serial
-              numbers, customers, and sales.
+          {trimmed.length < 2 && (
+            <div className="py-6 text-center text-zinc-500 text-xs">
+              Find a product or trace a stock record.
             </div>
           )}
         </div>
       </div>
-    </div>
+    </dialog>
   );
 };

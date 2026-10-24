@@ -181,8 +181,9 @@ export const Sidebar: React.FC = () => {
             {/* Mobile close button */}
             <button
               onClick={() => setIsMobileMenuOpen(false)}
-              className="md:hidden p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
+              className="md:hidden flex h-11 w-11 items-center justify-center text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors"
               title="Close menu"
+              aria-label="Close menu"
             >
               <X className="w-5 h-5" />
             </button>

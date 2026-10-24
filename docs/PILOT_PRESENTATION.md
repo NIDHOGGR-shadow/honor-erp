@@ -1,6 +1,6 @@
-# Honor first presentation pilot
+# Honor presentation demo
 
-Start at `/pilot` on the existing Honor storefront deployment. Use the inventory walkthrough at `/demo#/dashboard` for the meeting. This is an interactive presentation pilot, not an operational deployment for recording live business stock.
+Start at `/pilot` on the existing Honor storefront deployment. Use the inventory walkthrough at `/demo#/dashboard` for the meeting. This is an interactive presentation demo, not an operational deployment for recording live business stock.
 
 ## What to say
 
@@ -30,3 +30,11 @@ Use preview details only. Browser-local preview data is not a secure shared busi
 The presentation should not be described as production-ready or as an already-running shared stock system. Backend hosting access and credential authorization remain unresolved. Migration 0005 is prepared and tested but not yet applied to the hosted database. Real staff verification, notification delivery, payment processing and receipt flows have not passed hosted acceptance tests.
 
 After the business agrees on the workflow: confirm its administrator, locations, real opening stock, merchant country/currency, payment account and who authorizes refunds. Then finish the service connection and test the complete workflows with the business. See [the security work plan](SECURITY_WORK_PLAN.md).
+
+## Dashboard refinement and agreed next steps
+
+- Browse the public shop without an account; require customer sign-in before checkout. Customer signup and staff-assigned sign-in remain separate.
+- Finish the inventory dashboard first: phone navigation, distinct menu/search controls, a closeable search dialog and compact presentation guidance.
+- The presentation guide starts collapsed below 768px; the bottom navigation reserves device safe-area space. Search supports a visible Close control, Escape, backdrop dismissal, focus containment and return to its trigger.
+- Next: show published product availability/counts and allow requests for sold-out listed products. Requests should appear in the staff/admin dashboard. Email alerts and the sign-in requirement for product requests still need confirmation before implementation.
+- No sample products, customers, staff accounts or stock have been added. Real request delivery and notifications require the connected backend; the browser demo cannot deliver them.

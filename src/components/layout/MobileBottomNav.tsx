@@ -6,7 +6,7 @@
 
 import React from "react";
 import { useApp } from "../../context/AppContext";
-import { canSellOrOpenPos, canAccessModule } from "../../utils/formatters";
+import { canSellOrOpenPos } from "../../utils/formatters";
 import {
   LayoutDashboard,
   Boxes,
@@ -29,12 +29,13 @@ export const MobileBottomNav: React.FC = () => {
   return (
     <nav
       aria-label="Mobile Bottom Navigation"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-zinc-200/80 px-2 py-1 flex items-center justify-around shadow-lg"
+      className={`honor-mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-zinc-200/80 px-2 pt-1 grid items-center gap-1 shadow-lg ${canSell ? "grid-cols-5" : "grid-cols-4"}`}
     >
       {/* Dashboard */}
       <button
         onClick={() => setActiveModule("dashboard")}
-        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-medium transition-colors min-w-[56px] min-h-[44px] ${
+        aria-current={activeModule === "dashboard" ? "page" : undefined}
+        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-medium transition-colors min-w-0 min-h-12 ${
           activeModule === "dashboard"
             ? "text-emerald-800 font-bold"
             : "text-zinc-500 hover:text-zinc-800"
@@ -47,10 +48,12 @@ export const MobileBottomNav: React.FC = () => {
       {/* Inventory */}
       <button
         onClick={() => setActiveModule("inventory")}
-        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-medium transition-colors relative min-w-[56px] min-h-[44px] ${
+        aria-current={["inventory", "add-stock", "transfers", "purchases"].includes(activeModule) ? "page" : undefined}
+        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-medium transition-colors relative min-w-0 min-h-12 ${
           activeModule === "inventory" ||
           activeModule === "add-stock" ||
-          activeModule === "stock-movements"
+          activeModule === "transfers" ||
+          activeModule === "purchases"
             ? "text-emerald-800 font-bold"
             : "text-zinc-500 hover:text-zinc-800"
         }`}
@@ -68,9 +71,10 @@ export const MobileBottomNav: React.FC = () => {
       {canSell && (
         <button
           onClick={() => setActiveModule("pos")}
-          className={`flex flex-col items-center justify-center px-3 py-1 rounded-2xl transition-all min-h-[44px] ${
+          aria-current={activeModule === "pos" ? "page" : undefined}
+          className={`flex flex-col items-center justify-center min-w-0 px-2 py-1 rounded-xl text-[10px] transition-colors min-h-12 ${
             activeModule === "pos"
-              ? "bg-emerald-800 text-white shadow-xs scale-105"
+              ? "bg-emerald-800 text-white shadow-xs"
               : "bg-emerald-700 text-white shadow-2xs hover:bg-emerald-600"
           }`}
         >
@@ -84,7 +88,8 @@ export const MobileBottomNav: React.FC = () => {
       {/* Movement history keeps inventory central on mobile. */}
       <button
         onClick={() => setActiveModule("stock-movements")}
-        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-medium transition-colors min-w-[56px] min-h-[44px] ${
+        aria-current={activeModule === "stock-movements" ? "page" : undefined}
+        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-medium transition-colors min-w-0 min-h-12 ${
           activeModule === "stock-movements"
             ? "text-emerald-800 font-bold"
             : "text-zinc-500 hover:text-zinc-800"
@@ -97,7 +102,7 @@ export const MobileBottomNav: React.FC = () => {
       {/* More / Menu Drawer Toggle */}
       <button
         onClick={() => setIsMobileMenuOpen(true)}
-        className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-medium text-zinc-500 hover:text-zinc-800 transition-colors min-w-[56px] min-h-[44px]"
+        className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-medium text-zinc-500 hover:text-zinc-800 transition-colors min-w-0 min-h-12"
       >
         <Menu className="w-5 h-5 mb-0.5" />
         <span>More</span>

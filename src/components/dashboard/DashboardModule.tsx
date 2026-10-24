@@ -160,11 +160,11 @@ export const DashboardModule: React.FC = () => {
     },
   ];
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-6 sm:space-y-8">
       <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="honor-eyebrow mb-2">Inventory control</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
             Inventory overview
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-500">
@@ -187,17 +187,17 @@ export const DashboardModule: React.FC = () => {
             : "Browse inventory"}
         </button>
       </header>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {metrics.map((m) => (
-          <section key={m.label} className="honor-panel p-6">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-medium text-zinc-500">{m.label}</h2>
+          <section key={m.label} className="honor-panel min-w-0 p-4 sm:p-6">
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="text-xs font-medium text-zinc-500 sm:text-sm">{m.label}</h2>
               <m.icon
-                className={`h-4 w-4 ${m.accent ? "text-amber-600" : "text-emerald-700"}`}
+                className={`h-4 w-4 shrink-0 ${m.accent ? "text-amber-600" : "text-emerald-700"}`}
               />
             </div>
             <p
-              className={`my-4 text-3xl font-semibold tracking-tight tabular-nums ${m.accent ? "text-amber-700" : "text-zinc-900"}`}
+              className={`my-3 break-words text-2xl font-semibold tracking-tight tabular-nums sm:my-4 sm:text-3xl ${m.accent ? "text-amber-700" : "text-zinc-900"}`}
             >
               {m.value}
             </p>
@@ -232,7 +232,7 @@ export const DashboardModule: React.FC = () => {
                   key={id}
                   aria-pressed={tab === id}
                   onClick={() => setTab(id)}
-                  className={`min-h-9 rounded-md px-3 text-xs font-medium ${tab === id ? "bg-white text-zinc-900 shadow-xs" : "text-zinc-500"}`}
+                  className={`min-h-11 rounded-md px-3 text-xs font-medium ${tab === id ? "bg-white text-zinc-900 shadow-xs" : "text-zinc-500"}`}
                 >
                   {id === "attention"
                     ? `Needs attention (${attention.length})`
@@ -247,7 +247,7 @@ export const DashboardModule: React.FC = () => {
                 placeholder="Search item or SKU"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="min-h-10 w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-3 text-xs"
+                className="min-h-11 w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-3 text-base sm:text-sm"
               />
             </div>
           </div>

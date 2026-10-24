@@ -10,12 +10,6 @@
 body {
   margin: 0;
 }
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
 button {
   cursor: pointer;
 }
@@ -25,6 +19,31 @@ button:disabled {
 :focus-visible {
   outline: 2px solid #047857;
   outline-offset: 3px;
+}
+.honor-workspace-main {
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+.honor-mobile-nav {
+  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+}
+.honor-search-dialog {
+  width: min(672px, calc(100% - 24px));
+  max-width: none;
+  max-height: calc(100dvh - min(8dvh, 64px) - 16px);
+  margin: min(8dvh, 64px) auto auto;
+  padding: 0;
+  overflow: hidden;
+}
+.honor-search-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.honor-search-dialog::backdrop {
+  background: rgb(9 9 11 / 0.65);
+  backdrop-filter: blur(3px);
+}
+@media (min-width: 768px) {
+  .honor-workspace-main { padding-bottom: 40px; }
 }
 .honor-panel {
   border: 1px solid #e4e4e7;
