@@ -16,11 +16,11 @@ The business operating Honor should control its production hosting, merchant acc
 2. The administrator assigns staff email, role and locations. Invited staff activate their assigned account privately; administrator-issued temporary passwords must be replaced before accessing business data.
 3. Add locations, products and opening stock when the business is ready. Initial setup adds no sample inventory.
 4. Publish products to the company shop at `/shop/<company-slug>`. A preferred single-company home page can additionally use `HONOR_STORE_SLUG`.
-5. A customer reserves available stock; the server controls quantities and payment state. Staff record physical collection and the available serial/IMEI at handover. Receipts retain the relevant device information privately.
+5. A signed-in customer reserves available stock; the server controls quantities and payment state. Staff record physical collection and the available serial/IMEI at handover. Receipts retain the relevant device information privately.
 
 ## Refinement delivered in this pass
 
-- A missing shop now renders an explicit opening-soon page with a clear staff entry, instead of an almost-empty error screen. This does not claim that commerce is active.
+- A missing shop connection reports temporarily unavailable products and stock. It does not substitute a presentation page or invent inventory.
 - Customer account availability depends on the backend connection, independently of a catalogue slug. An unconfigured shop no longer blocks account setup when the API is connected.
 - Company shop URLs now have an actual Next.js route, matching the links used in the staff workspace.
 - Confirmation fragments are handled on both the shop and workspace. Credentials are removed from the address bar and validated through the backend exchange; client-side claims do not grant permissions.
@@ -32,6 +32,8 @@ The business operating Honor should control its production hosting, merchant acc
 
 The live interface is available, but the Honor API has not been deployed on Render. Render could not fetch the private repository, and transferring runtime credentials still requires explicit authorization. The connected Vercel account did not expose the existing storefront project for environment-variable management during this review. The database has no company or products, so there is no real catalogue to publish yet.
 
-After hosting access is resolved: apply migration 0005, deploy the API with the restricted Supabase connection and session settings, verify `/api/health`, set Vercel's server-only `HONOR_API_ORIGIN`, and provision the single Honor business with the operator command documented in [staff access](STAFF_ACCESS.md). Keep payments disabled until the merchant integration is tested.
+Migration 0005 is applied. After hosting access is resolved: deploy the API with the restricted Supabase connection and session settings, verify `/api/health`, set Vercel's server-only `HONOR_API_ORIGIN`, and provision the single Honor business with the operator command documented in [staff access](STAFF_ACCESS.md). Keep payments disabled until the merchant integration is tested.
 
-The free pilot has no background worker. Automatic queued email, payment-event reconciliation and scheduled reservation cleanup are not provided by this deployment. See [the free Render setup](RENDER_FREE.md). Real authenticated, stock, payment and receipt flows remain deployment acceptance gates; an opening-soon screen is not proof that those flows work.
+The free pilot has no background worker. Automatic queued email, payment-event reconciliation and scheduled reservation cleanup are not provided by this deployment. See [the free Render setup](RENDER_FREE.md). Real authenticated, stock, payment and receipt flows remain deployment acceptance gates; an unavailable-state screen is not proof that those flows work.
+
+Public presentation routes and sample-data seeding are retired. See [current product readiness](PRODUCT_READINESS.md).

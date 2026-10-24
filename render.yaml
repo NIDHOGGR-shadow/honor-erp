@@ -1,4 +1,4 @@
-# Free pilot: one API service only. No paid worker, cron, database or disk.
+# One free API service only. No paid worker, cron, database or disk.
 # Keep the existing Honor secrets; provide values privately during setup.
 previews:
   generation: "off"

@@ -1,104 +1,16 @@
 import argparse
-import getpass
-import os
 from sqlalchemy import select, text
 from .config import get_settings
 from .db import database
-from .inventory import audit, movement
+from .inventory import audit
 from .models import (
-    Balance,
     Company,
     Identity,
-    Location,
     LoginSession,
     Membership,
-    Product,
-    SerialUnit,
     now,
     uid,
 )
-from .security import hasher
-
-
-def seed(settings, sessions, email, password, currency="NGN"):
-    if settings.environment != "development" or settings.auth_provider != "development":
-        raise RuntimeError("Fictional fixtures are only allowed with development identity")
-    if len(password) < 12:
-        raise ValueError("Use at least 12 characters")
-    with sessions() as db:
-        if db.scalar(select(Company.id).where(Company.slug == "honor-demo")):
-            raise RuntimeError("The demo already exists; refusing to overwrite records")
-        user = Identity(
-            id=uid(), email=email.lower(), name="Demo administrator", password_hash=hasher.hash(password)
-        )
-        company = Company(
-            id=uid(), name="Honor Demo", slug="honor-demo", currency=currency, timezone="Africa/Lagos"
-        )
-        db.add_all([user, company])
-        db.flush()
-        db.add(Membership(company_id=company.id, user_id=user.id, role="ADMIN"))
-        location = Location(
-            id=uid(),
-            company_id=company.id,
-            name="Main store",
-            fulfil_online=True,
-            address="Fictional collection location · demonstration only",
-        )
-        second = Location(id=uid(), company_id=company.id, name="Warehouse")
-        db.add_all([location, second])
-        examples = [
-            ("HN-PHONE-01", "Phone · 128 GB / midnight", "Phones", "SERIAL", 24500000, 20500000, 3, 2),
-            ("HN-PHONE-02", "Phone · 256 GB / silver", "Phones", "SERIAL", 38500000, 32500000, 1, 2),
-            ("HN-CHARGE-01", "USB-C fast charger · 20 W", "Accessories", "QUANTITY", 850000, 500000, 24, 8),
-            ("HN-CABLE-01", "Braided USB-C cable · 1 m", "Accessories", "QUANTITY", 350000, 180000, 6, 10),
-            ("HN-AUDIO-01", "Wireless earbuds · white", "Audio", "QUANTITY", 1950000, 1350000, 12, 4),
-            ("HN-CASE-01", "Protective phone case · clear", "Accessories", "QUANTITY", 450000, 200000, 18, 5),
-        ]
-        db.flush()
-        for sku, name, category, tracking, price, cost, quantity, point in examples:
-            product = Product(
-                id=uid(),
-                company_id=company.id,
-                sku=sku,
-                name=name,
-                category=category,
-                tracking=tracking,
-                price_minor=price,
-                cost_minor=cost,
-                reorder_point=point,
-                published=True,
-                description="Fictional demonstration item. Collection from the main store.",
-            )
-            db.add(product)
-            db.flush()
-            db.add(
-                Balance(
-                    company_id=company.id, product_id=product.id, location_id=location.id, on_hand=quantity
-                )
-            )
-            for n in range(quantity if tracking == "SERIAL" else 0):
-                db.add(
-                    SerialUnit(
-                        company_id=company.id,
-                        product_id=product.id,
-                        location_id=location.id,
-                        serial=f"DEMO-{sku}-{n + 1:03}",
-                    )
-                )
-            movement(
-                db,
-                company.id,
-                user.id,
-                product.id,
-                location.id,
-                quantity,
-                "OPENING",
-                "demo-seed",
-                "Reviewed fictional opening stock",
-            )
-        audit(db, company.id, user.id, "development.seeded")
-        db.commit()
-        return company.id
 
 
 def reconcile(sessions):
@@ -165,7 +77,7 @@ def provision_honor(sessions, email, currency="NGN"):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["seed-demo", "provision-honor", "reconcile", "cleanup"])
+    parser.add_argument("action", choices=["provision-honor", "reconcile", "cleanup"])
     parser.add_argument("--email")
     parser.add_argument("--currency", default="NGN")
     args = parser.parse_args()
@@ -179,13 +91,6 @@ def main():
         validated = CompanyInput(name="Honor", slug="honor", currency=args.currency)
         company_id = provision_honor(sessions, args.email, validated.currency)
         print("Honor business provisioned:", company_id, "No products or stock added.")
-    elif args.action == "seed-demo":
-        email = args.email or input("Demo administrator email: ")
-        password = os.environ.get("HONOR_DEMO_PASSWORD") or getpass.getpass(
-            "Choose a demo password (12+ characters): "
-        )
-        company_id = seed(settings, sessions, email, password, args.currency)
-        print("Fictional company ready:", company_id, "Shop: /shop/honor-demo")
     elif args.action == "cleanup":
         from .inventory import expire
         from .models import RateWindow, now

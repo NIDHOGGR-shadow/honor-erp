@@ -12,7 +12,7 @@ Run `docker compose -f compose.dev.yaml up --build`, open the workspace and regi
 
 The first company can instead be created through registration/sign-in and company setup. Add a location, its collection address and online-collection permission in Company. Add/publish products in Inventory, then receive checked stock with a reference. Stock in an internal warehouse is not automatically offered for online collection.
 
-The original browser-only demonstration remains at `/demo`; its localStorage records never become connected company stock.
+Public browser-local operations are retired. `/demo` redirects to authenticated `/workspace`; only API-backed company stock is available in the shipped app.
 
 ## Production resources
 

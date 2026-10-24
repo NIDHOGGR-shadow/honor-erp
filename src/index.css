@@ -1,8 +1,6 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @source "./online";
-@source "./components";
-@source "./presentation";
-@source "./App.tsx";
+@source "../apps/storefront/app";
 
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
@@ -25,22 +23,6 @@ button:disabled {
 }
 .honor-mobile-nav {
   padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-}
-.honor-search-dialog {
-  width: min(672px, calc(100% - 24px));
-  max-width: none;
-  max-height: calc(100dvh - min(8dvh, 64px) - 16px);
-  margin: min(8dvh, 64px) auto auto;
-  padding: 0;
-  overflow: hidden;
-}
-.honor-search-dialog[open] {
-  display: flex;
-  flex-direction: column;
-}
-.honor-search-dialog::backdrop {
-  background: rgb(9 9 11 / 0.65);
-  backdrop-filter: blur(3px);
 }
 @media (min-width: 768px) {
   .honor-workspace-main { padding-bottom: 40px; }
@@ -85,58 +67,6 @@ button:disabled {
 }
 .online-app {
   font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-}
-.honor-shop-welcome {
-  display: grid;
-  gap: 40px;
-  align-items: center;
-  border: 1px solid #dce9e1;
-  border-radius: 24px;
-  padding: clamp(28px, 5vw, 64px);
-  background: linear-gradient(130deg, #f0f7f2, #fff 78%);
-}
-.honor-shop-preview {
-  border: 1px solid #e0e9e3;
-  border-radius: 18px;
-  padding: 28px;
-  background: rgb(255 255 255 / 85%);
-}
-.honor-pilot-hero {
-  display: grid;
-  align-items: center;
-  gap: 40px;
-  border-radius: 24px;
-  padding: clamp(28px, 5vw, 56px);
-  background: #17372d;
-  color: #fff;
-}
-.honor-pilot-summary {
-  border: 1px solid rgb(221 239 216 / 20%);
-  border-radius: 18px;
-  padding: 28px;
-  background: rgb(255 255 255 / 4%);
-}
-.honor-pilot-stop {
-  display: block;
-  border: 1px solid #dce6df;
-  border-radius: 16px;
-  padding: 26px;
-  background: white;
-  transition: border-color .15s, box-shadow .15s;
-}
-.honor-pilot-stop:hover {
-  border-color: #a7c7a0;
-  box-shadow: 0 5px 18px rgb(23 55 45 / 5%);
-}
-@media (min-width: 900px) {
-  .honor-pilot-hero { grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr); gap: 56px; }
-}
-@media (min-width: 900px) {
-  .honor-shop-welcome {
-    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
-    gap: 64px;
-    min-height: 420px;
-  }
 }
 .online-input {
   display: block;
@@ -206,6 +136,11 @@ button:disabled {
 .online-table tbody tr:hover {
   background: #fdfefd;
 }
+.honor-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 24px);
+}
 .honor-dialog::backdrop {
   background: rgb(9 9 11 / 0.4);
 }
@@ -238,6 +173,7 @@ button:disabled {
 .honor-auth-links button, .honor-auth-links a { min-height: 44px; display: inline-flex; align-items: center; }
 .honor-auth-links { align-items: center; }
 @media (max-width: 639px) {
+  .online-input { font-size: 16px; }
   .honor-staff-entry { align-items: flex-start; }
   .honor-auth h2 { font-size: 28px; line-height: 1.25; }
 }

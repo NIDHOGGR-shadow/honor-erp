@@ -255,6 +255,8 @@ export default function Workspace({
   const [page, setPage] = useState<Page>("Overview");
   const [location, setLocation] = useState("ALL");
   const [query, setQuery] = useState("");
+  const [attentionOnly, setAttentionOnly] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -278,6 +280,7 @@ export default function Workspace({
     setMe(null);
     setCompanyId("");
     setData(blank);
+    setLastSynced(null);
     setPage("Overview");
     setLocation("ALL");
     setQuery("");
@@ -311,6 +314,7 @@ export default function Workspace({
       setMe(next.me);
       setCompanyId(next.companyId);
       setData(next.data);
+      setLastSynced(new Date());
     } catch (e) {
       if (generation !== version.current) return;
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
@@ -349,7 +353,7 @@ export default function Workspace({
     window.history.replaceState({}, "", window.location.pathname + window.location.search);
     if (callback.kind === "error") { setError(callback.message); return; }
     if (!configured) {
-      setError("Your email link was received. Sign in once workspace setup is complete.");
+      setError("Your email link was received. Sign-in is temporarily unavailable; please try again later.");
       return;
     }
     publicApi.send("/auth/exchange", { access_token: callback.accessToken, refresh_token: callback.refreshToken })
@@ -525,16 +529,16 @@ export default function Workspace({
     Icon: any,
     warm = false,
   ) => (
-    <div className="rounded-2xl border border-zinc-200/70 bg-white p-5 sm:p-6">
-      <div className="flex items-center justify-between text-xs text-zinc-500">
+    <div className="min-w-0 rounded-2xl border border-zinc-200/70 bg-white p-4 sm:p-6">
+      <div className="flex items-start justify-between gap-2 text-xs text-zinc-500">
         <span>{label}</span>
         <Icon
           size={16}
-          className={warm ? "text-amber-600" : "text-emerald-700"}
+          className={`shrink-0 ${warm ? "text-amber-600" : "text-emerald-700"}`}
         />
       </div>
-      <p className="mt-5 text-3xl font-semibold tracking-tight">{value}</p>
-      <p className="mt-2 text-[11px] text-zinc-400">{hint}</p>
+      <p className="mt-4 break-words text-2xl font-semibold tracking-tight sm:text-3xl">{value}</p>
+      <p className="mt-2 text-[11px] leading-5 text-zinc-500">{hint}</p>
     </div>
   );
   const inventoryTable = (products: Product[]) => (
@@ -606,39 +610,28 @@ export default function Workspace({
       </table>
       {!products.length && (
         <Empty
-          title="No products yet"
-          text="Add your catalogue, then receive the stock you have checked."
+          title={data.products.length ? "No matching products" : "No products yet"}
+          text={data.products.length ? "Try another search or change your stock filter." : "Add your catalogue, then receive the stock you have checked."}
         />
       )}
     </div>
   );
-  return (
-    <div className="online-app min-h-screen bg-[#f7f8fa] text-zinc-900">
-      <ConnectionNotice />
-      {mobile && (
-        <button
-          aria-label="Close navigation"
-          onClick={() => setMobile(false)}
-          className="fixed inset-0 z-30 bg-zinc-950/40 md:hidden"
-        />
-      )}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[236px] flex-col bg-[#132b25] px-4 py-7 text-white transition-transform ${mobile ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
-      >
+  const navigation = (<>
         <div className="px-3">
           <Brand />
         </div>
         <div className="mt-10 px-3 text-[9px] uppercase tracking-[.18em] text-emerald-100/35">
           Your workspace
         </div>
-        <nav className="mt-3 space-y-1">
+        <nav aria-label="Staff navigation" className="mt-3 space-y-1">
           {pages
             .filter((p) => canOpenWorkspacePage(company.role, p.label))
             .map((p) => (
               <button
                 key={p.label}
                 onClick={() => go(p.label)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-xs ${page === p.label ? "bg-white/10 text-white" : "text-emerald-100/55 hover:bg-white/5 hover:text-white"}`}
+                aria-current={page === p.label ? "page" : undefined}
+                className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-3 text-xs ${page === p.label ? "bg-white/10 text-white" : "text-emerald-100/55 hover:bg-white/5 hover:text-white"}`}
               >
                 <p.icon size={17} strokeWidth={1.6} />
                 {p.label}
@@ -659,7 +652,7 @@ export default function Workspace({
           Open your store
           <ArrowUpRight size={13} className="ml-auto" />
         </a>
-        <div className="mt-auto rounded-xl border border-white/10 p-3">
+        <div className="mt-7 rounded-xl border border-white/10 p-3">
           <p className="text-xs font-medium">{me.name}</p>
           <p className="mt-1 text-[10px] text-emerald-100/40">
             {company.role.toLowerCase()} · company access
@@ -673,20 +666,33 @@ export default function Workspace({
             Sign out
           </button>
         </div>
+  </>);
+  return (
+    <div className="online-app min-h-screen bg-[#f7f8fa] text-zinc-900">
+      <ConnectionNotice />
+      <aside aria-label="Staff workspace navigation" className="fixed inset-y-0 left-0 z-40 hidden w-[236px] flex-col overflow-y-auto bg-[#132b25] px-4 py-7 text-white md:flex">
+        {navigation}
       </aside>
+      {mobile && <Modal title="Navigation" onClose={() => setMobile(false)}><div className="rounded-xl bg-[#132b25] px-3 py-5 text-white">{navigation}</div></Modal>}
+
+      <nav aria-label="Mobile staff navigation" className="honor-mobile-nav fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 gap-1 border-t border-zinc-200 bg-white px-2 pt-1 md:hidden">
+        {[{label: "Overview", icon: LayoutDashboard}, {label: "Inventory", icon: Boxes}, {label: "Orders", icon: ShoppingBag}].map(item => <button key={item.label} onClick={() => go(item.label as Page)} aria-current={page === item.label ? "page" : undefined} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] ${page === item.label ? "bg-emerald-50 font-semibold text-emerald-800" : "text-zinc-600"}`}><item.icon size={19} />{item.label}</button>)}
+        <button onClick={() => setMobile(true)} aria-expanded={mobile} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[11px] text-zinc-600"><Menu size={19} />More</button>
+      </nav>
       <div className="md:ml-[236px]">
-        <header className="flex min-h-[78px] flex-wrap items-center justify-between gap-3 border-b border-zinc-200/70 bg-white px-5 sm:px-8">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-2 border-b border-zinc-200/70 bg-white px-3 sm:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <button
-              className="md:hidden"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-zinc-50 md:hidden"
               aria-label="Open navigation"
+              aria-expanded={mobile}
               onClick={() => setMobile(true)}
             >
               <Menu size={20} />
             </button>
             <select
               aria-label="Company"
-              className="max-w-48 bg-transparent text-xs font-semibold"
+              className="min-h-11 min-w-0 w-full max-w-48 truncate bg-transparent text-base font-semibold sm:text-sm"
               value={companyId}
               onChange={(e) => {
                 ++version.current;
@@ -707,19 +713,20 @@ export default function Workspace({
               ))}
             </select>
             <span className="hidden h-4 w-px bg-zinc-200 sm:block" />
-            <span className="hidden text-xs text-zinc-400 sm:block">
+            <span className="hidden truncate text-xs text-zinc-400 lg:block">
               {page}
             </span>
           </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-xs text-zinc-500">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-3">
+            <label className="flex min-w-0 max-w-52 flex-1 items-center gap-2 text-xs text-zinc-500">
               <span className="hidden sm:inline">Location</span>
               <select
-                className="max-w-40 rounded-lg border border-zinc-200 bg-white p-2.5"
+                aria-label="Stock location"
+                className="min-h-11 min-w-0 w-full truncate rounded-lg border border-zinc-200 bg-white p-2 text-base sm:text-sm"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
               >
-                <option value="ALL">All permitted locations</option>
+                <option value="ALL">All locations</option>
                 {data.locations.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name}
@@ -730,23 +737,23 @@ export default function Workspace({
             <button
               aria-label="Refresh workspace"
               onClick={() => refresh()}
-              className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-50"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50"
             >
               <RefreshCw size={16} />
             </button>
           </div>
         </header>
-        <main className="mx-auto max-w-[1440px] p-5 sm:p-8 lg:p-10">
+        <main className="honor-workspace-main mx-auto min-w-0 max-w-[1440px] p-4 sm:p-8 lg:p-10">
           <div className="mb-7 flex flex-wrap items-center justify-between gap-3 text-[10px] text-zinc-400">
             <span className="flex items-center gap-2">
               <span
                 className={`h-1.5 w-1.5 rounded-full ${config?.development ? "bg-amber-500" : "bg-emerald-500"}`}
               />
               {config?.development
-                ? "Development workspace · fictional demonstration records"
+                ? "Local development environment"
                 : "Shared company workspace"}
             </span>
-            <span>Stock updates from your company records</span>
+            <span>{lastSynced ? `Last synced ${lastSynced.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}` : "Loading company records"}</span>
           </div>
           {error && (
             <div
@@ -886,7 +893,7 @@ export default function Workspace({
           </div>
           {page === "Overview" && (
             <>
-              <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 {metric(
                   "Available units",
                   available.toLocaleString(),
@@ -918,14 +925,14 @@ export default function Workspace({
                 )}
               </div>
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-                <section className="online-panel">
-                  <div className="flex items-center justify-between px-6 py-5">
+                <section className="online-panel min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-5 sm:px-6">
                     <div>
                       <h2 className="text-sm font-semibold">
-                        Stock that needs attention
+                        Available inventory
                       </h2>
                       <p className="mt-2 text-[11px] text-zinc-400">
-                        A short list to plan your next receipt.
+                        Products and available quantities at your permitted locations.
                       </p>
                     </div>
                     <button
@@ -936,7 +943,15 @@ export default function Workspace({
                       <ArrowRight size={13} className="ml-1 inline" />
                     </button>
                   </div>
-                  {inventoryTable(low.slice(0, 8))}
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 px-4 py-3 sm:px-6">
+                    <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-zinc-200 px-3">
+                      <Search size={16} className="shrink-0 text-zinc-400" />
+                      <input aria-label="Search dashboard inventory" placeholder="Product or SKU" value={query} onChange={e => setQuery(e.target.value)} className="min-w-0 w-full bg-transparent py-2 text-base sm:text-sm" />
+                      {query && <button aria-label="Clear inventory search" onClick={() => setQuery("")} className="flex h-11 w-11 shrink-0 items-center justify-center"><X size={16} /></button>}
+                    </label>
+                    <button className="online-secondary min-h-11" aria-pressed={attentionOnly} onClick={() => setAttentionOnly(!attentionOnly)}>{attentionOnly ? "Show all stock" : `Needs attention (${low.length})`}</button>
+                  </div>
+                  {inventoryTable(attentionOnly ? shown.filter(p => productBalance(p.id).available <= p.reorder_point) : shown)}
                 </section>
                 <section className="online-panel p-6">
                   <p className="text-sm font-semibold">Today's operations</p>
@@ -1001,18 +1016,18 @@ export default function Workspace({
           )}
           {page === "Inventory" && (
             <section className="online-panel">
-              <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
+              <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6">
                 <span className="text-xs font-medium">
                   {data.products.length} products
                 </span>
-                <label className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2">
+                <label className="flex min-h-11 min-w-0 max-w-full items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2">
                   <Search size={14} className="text-zinc-400" />
                   <input
                     aria-label="Search inventory"
                     placeholder="Search name or SKU"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="bg-transparent text-xs outline-none"
+                    className="min-w-0 w-full bg-transparent text-base sm:text-sm"
                   />
                 </label>
                 {privileged && (
@@ -2280,7 +2295,7 @@ function SignIn({
               id="workspace-setup-status"
               className="honor-auth-status mt-4"
             >
-              Honor’s connection is being set up. You can fill in your details; sign-in is pending connection.
+              Sign-in is temporarily unavailable. You can enter your details, but they will only be submitted when the service is available.
             </p>
           )}
           {development && (

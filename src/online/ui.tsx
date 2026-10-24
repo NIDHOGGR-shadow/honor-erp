@@ -68,7 +68,17 @@ export function Modal({
   const ref = React.useRef<HTMLDialogElement>(null);
   const labelId = React.useId();
   React.useEffect(() => {
-    ref.current?.showModal();
+    const dialog = ref.current;
+    if (!dialog) return;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus({preventScroll: true});
+    };
   }, []);
   return (
     <dialog
@@ -78,21 +88,22 @@ export function Modal({
         event.preventDefault();
         onClose();
       }}
+      onClick={event => { if (event.target === event.currentTarget) onClose(); }}
       className="honor-dialog m-auto w-[calc(100%_-_2rem)] max-w-lg rounded-2xl border-0 p-0 text-zinc-900 backdrop:bg-zinc-950/40"
     >
-      <div className="flex items-center justify-between border-b border-zinc-100 p-6">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-100 px-4 py-3 sm:px-6">
         <h2 id={labelId} className="text-lg font-semibold">
           {title}
         </h2>
         <button
-          aria-label="Close"
+          aria-label={`Close ${title.toLowerCase()}`}
           onClick={onClose}
-          className="rounded-lg p-2 hover:bg-zinc-100"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-zinc-100"
         >
           <X size={18} />
         </button>
       </div>
-      <div className="max-h-[75vh] overflow-y-auto p-6">{children}</div>
+      <div className="min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6">{children}</div>
     </dialog>
   );
 }

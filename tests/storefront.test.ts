@@ -35,12 +35,12 @@ test("public catalogue renders product and price in initial server HTML", () => 
   assert.doesNotMatch(html, /Opening the collection/);
 });
 
-test("an unconfigured shop has an honest launch page and a working staff entry", () => {
+test("a disconnected shop reports unavailable inventory and keeps staff entry", () => {
   const html = renderToStaticMarkup(React.createElement(Storefront, { slug: "", configured: false }));
-  assert.match(html, /Our online shop is getting ready/);
-  assert.match(html, /Opening soon/);
+  assert.match(html, /The shop is temporarily unavailable/);
+  assert.match(html, /cannot load current products or stock/);
   assert.match(html, /href="\/workspace"/);
-  assert.doesNotMatch(html, /This shop is not available yet|Loading the collection|Search products/);
+  assert.doesNotMatch(html, /Opening soon|View demo|View pilot|Loading the collection|Search products/);
 });
 
 test("account access does not depend on a merchant catalogue being configured", () => {
@@ -48,14 +48,14 @@ test("account access does not depend on a merchant catalogue being configured", 
     slug: "", configured: false, accountConfigured: true, initialSearch: "view=login",
   }));
   assert.match(html, /Email address/);
-  assert.doesNotMatch(html, /fieldset disabled|Account access is being connected/);
+  assert.doesNotMatch(html, /fieldset disabled|Account services are temporarily unavailable/);
 });
 
 test("unconnected account forms remain editable with an honest connection notice", () => {
   const html = renderToStaticMarkup(React.createElement(Storefront, {
     slug: "", configured: false, initialSearch: "view=signup",
   }));
-  assert.match(html, /Account access is being connected/);
+  assert.match(html, /Account services are temporarily unavailable/);
   assert.doesNotMatch(html, /<fieldset disabled/);
 });
 
@@ -63,6 +63,6 @@ test("collection page does not show an endless loader when no shop is configured
   const html = renderToStaticMarkup(React.createElement(Storefront, {
     slug: "", configured: false, initialSearch: "view=locations",
   }));
-  assert.match(html, /Collection details are coming soon/);
+  assert.match(html, /Collection details unavailable/);
   assert.doesNotMatch(html, /Loading collection details/);
 });

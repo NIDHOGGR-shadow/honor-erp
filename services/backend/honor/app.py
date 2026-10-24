@@ -1073,13 +1073,15 @@ def create_app(settings=None, sessions=None, route_class=None):
 
     @app.post("/api/v1/storefront/{slug}/checkouts", status_code=201)
     def checkout(slug: str, data: S.Checkout, request: Request, db: Db, idempotency_key: Key = None):
+        user, _ = current(db, request)
         rate_limit(db, request, "checkout", limit=60, period=60)
         company = db.scalar(select(Company).where(Company.slug == slug))
         if not company:
             raise HTTPException(404, "Shop not found")
         payments.guard_merchant(settings, company.id)
-        customer_id = current(db, request)[0].id if request.cookies.get(COOKIE) else None
-        return inventory.reserve(db, company, data, idempotency_key, settings, customer_id)
+        # The verified account owns the order and its email destination.
+        data = data.model_copy(update={"email": user.email})
+        return inventory.reserve(db, company, data, idempotency_key, settings, user.id)
 
     @app.get("/api/v1/customer/me")
     def customer_profile(request: Request, db: Db):
@@ -1116,12 +1118,12 @@ def create_app(settings=None, sessions=None, route_class=None):
 
     @app.post("/api/v1/checkouts/{order_id}/payment")
     def payment(order_id: str, request: Request, db: Db, x_order_key: str = Header(default="")):
-        customer_id = current(db, request)[0].id if not x_order_key and request.cookies.get(COOKIE) else None
+        customer_id = current(db, request)[0].id
         return payments.begin_payment(db, order_id, x_order_key, settings, customer_id)
 
     @app.post("/api/v1/customer/orders/{order_id}/verify-payment")
     def verify_payment(order_id: str, request: Request, db: Db, x_order_key: str = Header(default="")):
-        customer_id = current(db, request)[0].id if not x_order_key and request.cookies.get(COOKIE) else None
+        customer_id = current(db, request)[0].id
         order = payments.order_access(db, order_id, x_order_key, customer_id)
         rate_limit(db, request, "verify-payment", order.id, limit=10, period=60)
         payments.guard_merchant(settings, order.company_id)
@@ -1142,9 +1144,11 @@ def create_app(settings=None, sessions=None, route_class=None):
         order = payments.order_access(db, order_id, x_order_key, customer_id)
         return receipt_response(db, order)
 
-    @app.post("/api/v1/checkouts/{order_id}/simulate")
-    def simulate(order_id: str, db: Db, x_order_key: str = Header(default="")):
-        return payments.simulate_payment(db, settings, order_id, x_order_key)
+    # Isolated local test support is never registered in the deployed API.
+    if settings.environment == "development" and settings.payment_provider == "sandbox":
+        @app.post("/api/v1/checkouts/{order_id}/simulate", include_in_schema=False)
+        def simulate(order_id: str, db: Db, x_order_key: str = Header(default="")):
+            return payments.simulate_payment(db, settings, order_id, x_order_key)
 
     @app.post("/api/v1/customer/orders/{order_id}/cancel")
     def cancel(order_id: str, request: Request, db: Db, x_order_key: str = Header(default="")):

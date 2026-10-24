@@ -135,13 +135,6 @@ export function customerApi(base: string, slug: string) {
         "POST",
         headers(key),
       ),
-    simulate: (id: string, key: string) =>
-      api.send(
-        "/checkouts/" + encodeURIComponent(id) + "/simulate",
-        undefined,
-        "POST",
-        headers(key),
-      ),
     login: (email: string, password: string) =>
       api.send<Customer>("/auth/login", { email, password }),
     exchange: (accessToken: string, refreshToken: string) =>

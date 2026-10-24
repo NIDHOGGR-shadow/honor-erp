@@ -518,13 +518,7 @@ def test_customer_account_ownership_is_scoped_and_guest_email_is_not_a_claim(env
                 "lines": [{"product_id": env["charger"], "quantity": 1}],
             },
         )
-        assert result.status_code == 201
-        guest_id = result.json()["id"]
-        assert client.get(f"/api/v1/customer/orders/{guest_id}").status_code == 404
-        assert (
-            guest.get(f"/api/v1/customer/orders/{guest_id}", headers={"X-Order-Key": token}).status_code
-            == 200
-        )
+        assert result.status_code == 401
     assert [o["id"] for o in client.get("/api/v1/customer/orders?shop=test-shop").json()] == [owned_id]
     assert client.post(f"/api/v1/checkouts/{owned_id}/payment").status_code == 200
     assert client.post(f"/api/v1/customer/orders/{owned_id}/cancel").status_code == 200
@@ -536,3 +530,46 @@ def test_customer_account_ownership_is_scoped_and_guest_email_is_not_a_claim(env
 def test_public_collection_locations_exclude_internal_warehouses(env):
     data = env["client"].get("/api/v1/storefront/test-shop").json()
     assert data["locations"] == [{"id": env["main"], "name": "Main", "address": "Test collection address"}]
+
+
+def test_checkout_requires_account_before_reserving_stock(env):
+    with TestClient(env["app"]) as guest:
+        response = guest.post("/api/v1/storefront/test-shop/checkouts", json={
+            "customer_name": "Buyer", "email": "buyer@example.test",
+            "client_token": str(uuid4()),
+            "lines": [{"product_id": env["phone"], "quantity": 1}],
+        }, headers={"Idempotency-Key": str(uuid4())})
+    assert response.status_code == 401
+    assert stock(env) == (1, 0)
+    with env["sessions"]() as db:
+        assert db.scalar(select(func.count()).select_from(Order)) == 0
+
+
+def test_checkout_binds_receipt_email_and_order_to_verified_account(env):
+    response, _ = checkout(env)
+    assert response.status_code == 201, response.text
+    with env["sessions"]() as db:
+        order = db.get(Order, response.json()["id"])
+        assert order.customer_id == env["admin"]
+        assert order.email == "admin@example.test"
+
+
+def test_production_api_does_not_register_payment_simulation(env):
+    from honor.app import create_app
+    settings = env["settings"].model_copy(update={
+        "environment": "production", "auth_provider": "supabase",
+        "payment_provider": "disabled", "cookie_secure": True,
+        "app_origin": "https://shop.example.test",
+        "supabase_url": "https://auth.example.test", "supabase_publishable_key": "test-public-key",
+    })
+    app = create_app(settings, env["sessions"])
+    assert not any(route.path.endswith("/simulate") for route in app.routes)
+
+
+def test_starting_payment_requires_sign_in_even_with_private_order_key(env):
+    response, token = checkout(env)
+    assert response.status_code == 201
+    with TestClient(env["app"]) as guest:
+        payment = guest.post(f"/api/v1/checkouts/{response.json()['id']}/payment", headers={"X-Order-Key": token})
+    assert payment.status_code == 401
+    assert stock(env) == (1, 1)

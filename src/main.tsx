@@ -1,22 +1,21 @@
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-const App = lazy(() => import("./App.tsx"));
 const Workspace = lazy(() => import("./online/Workspace"));
 const Storefront = lazy(() => import("./online/Storefront"));
 import "./index.css";
 
 const path = window.location.pathname;
 const apiBase = import.meta.env.VITE_API_BASE || "/api/v1";
-const publicPreview = import.meta.env.VITE_PUBLIC_PREVIEW === "true";
-const screen = publicPreview || path.startsWith("/demo") ? (
-  <App />
-) : path.startsWith("/shop/") ? (
-  <Storefront
-    slug={decodeURIComponent(path.split("/").filter(Boolean)[1] || "")}
-    apiBase={apiBase}
-  />
+// Retire old public walkthrough links; staff access always uses the API session.
+const retired = path === "/demo" || path === "/pilot";
+if (retired) window.location.replace(path === "/demo" ? "/workspace" : "/");
+const shopSlug = path.startsWith("/shop/")
+  ? decodeURIComponent(path.split("/").filter(Boolean)[1] || "")
+  : import.meta.env.VITE_STORE_SLUG || "honor";
+const screen = retired ? null : path.startsWith("/workspace") ? (
+  <Workspace apiBase={apiBase} shopUrl="/" />
 ) : (
-  <Workspace apiBase={apiBase} />
+  <Storefront slug={shopSlug} apiBase={apiBase} />
 );
 
 createRoot(document.getElementById("root")!).render(

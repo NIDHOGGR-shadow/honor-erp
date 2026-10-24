@@ -30,7 +30,7 @@ The shop's **Staff sign-in** link opens `/workspace` by default. This route moun
 
 ## Cloudflare Pages
 
-Use the root `wrangler.toml`. Build with `npm run build:cloudflare`, which copies the reviewed advanced-mode `_worker.js` into `dist`. `VITE_PUBLIC_PREVIEW` must be absent/false. The public sample/demo mode must not be deployed as the connected workspace.
+Use the root `wrangler.toml`. Build with `npm run build:cloudflare`, which copies the reviewed advanced-mode `_worker.js` into `dist`. The build has no public preview mode. Both deployment targets use authenticated API-backed staff access.
 
 Set `HONOR_API_ORIGIN` in the Cloudflare project's runtime variables to the real HTTPS API origin. Deploy `dist` through the private Git integration or authenticated `wrangler pages deploy dist --project-name honor-workspace`. The API proxy returns 503 when unconfigured; it never returns a false empty catalogue or successful sign-in. It disables API caching and refuses insecure origins. SPA navigation falls back to the app only outside `/api/`.
 

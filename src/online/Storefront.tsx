@@ -118,7 +118,7 @@ export default function Storefront({
     setProfileError("");
     try {
       const profile = await api.profile();
-      if (generation === profileGeneration.current) setCustomer(profile);
+      if (generation === profileGeneration.current) { setCustomer(profile); return profile; }
     } catch (e) {
       if (generation !== profileGeneration.current) return;
       setCustomer(null);
@@ -194,11 +194,11 @@ export default function Storefront({
     window.history.replaceState({}, "", window.location.pathname + window.location.search);
     if (callback.kind === "error") { setError(callback.message); return; }
     if (!accountConfigured) {
-      setNotice("Your email link was received. Account access will be available when the shop finishes setup.");
+      setNotice("Your email link was received. Account services are temporarily unavailable; please try again later.");
       return;
     }
     api.exchange(callback.accessToken, callback.refreshToken)
-      .then(async () => { await loadProfile(); navigate("account"); })
+      .then(async () => { if (!await loadProfile()) throw new Error("Your account could not be loaded. Please try again."); navigate("account"); })
       .catch((e) => setError(message(e)));
   }, [api, accountConfigured, loadProfile]);
   useEffect(() => {
@@ -299,17 +299,19 @@ export default function Storefront({
       if (url.protocol !== "https:")
         throw new Error("The payment link is unavailable. Contact the store.");
       window.location.assign(url.href);
-    } else if (result.simulation && catalogue?.simulation)
-      setNotice(
-        "Development checkout: no money has been charged. Use the clearly labelled test action below.",
-      );
-    else
-      throw new Error(
-        "Online payment is unavailable. Your order status is shown below.",
-      );
+    } else {
+      throw new Error("Online payment is unavailable. Your order status is shown below.");
+    }
   }
+
   function checkout(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!customer) {
+      sessionStorage.setItem("honor:after-login:" + slug, "checkout");
+      navigate("login");
+      setNotice("Sign in to continue checkout. Your cart is saved.");
+      return;
+    }
     const form = new FormData(e.currentTarget);
     run(async () => {
       if (!catalogue?.checkout_enabled || invalidCart || !items.length)
@@ -337,11 +339,11 @@ export default function Storefront({
       }
       const created = await api.reserve(
         String(form.get("name")),
-        String(form.get("email")),
+        customer.email,
         key,
         checkoutLines(cart, products),
       );
-      // Save the guest credential before fetching details or opening hosted payment.
+      // Save the private order access credential before fetching details or opening hosted payment.
       sessionStorage.setItem("honor:order:" + created.id, key);
       sessionStorage.setItem(currentOrderSlot, created.id);
       setOrderKey(key);
@@ -368,8 +370,10 @@ export default function Storefront({
         setNotice(result.message);
       } else {
         await api.login(email, String(data.get("password")));
-        await loadProfile();
-        navigate("account");
+        if (!await loadProfile()) throw new Error("Your account could not be loaded. Please try again.");
+        const next = sessionStorage.getItem("honor:after-login:" + slug);
+        sessionStorage.removeItem("honor:after-login:" + slug);
+        navigate(next === "checkout" ? "checkout" : "account");
       }
       form.reset();
     }));
@@ -554,7 +558,7 @@ export default function Storefront({
             >
               Continue to payment <ArrowRight size={16} />
             </button>
-            {!catalogue?.simulation && (
+            {
               <button
                 className="online-secondary"
                 disabled={busy}
@@ -567,7 +571,7 @@ export default function Storefront({
               >
                 Check payment with provider
               </button>
-            )}
+            }
             <button
               disabled={busy}
               className="online-secondary"
@@ -582,20 +586,7 @@ export default function Storefront({
             >
               Cancel unpaid order
             </button>
-            {catalogue?.simulation && (
-              <button
-                className="online-secondary"
-                disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    await api.simulate(value.id, orderKey);
-                    await loadOrder(value.id, orderKey);
-                  })
-                }
-              >
-                Development only: simulate payment
-              </button>
-            )}
+
           </div>
         )}
         <button
@@ -690,31 +681,11 @@ export default function Storefront({
         {activeView === "shop" && (
           <>
             {catalogueMissing ? (
-              <section className="honor-shop-welcome" aria-labelledby="shop-welcome-title">
-                <div>
-                  <p className="honor-eyebrow">Honor</p>
-                  <span className="mt-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-800">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" /> Opening soon
-                  </span>
-                  <h1 id="shop-welcome-title" className="mt-5 max-w-xl text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">
-                    Our online shop is getting ready.
-                  </h1>
-                  <p className="mt-5 max-w-lg text-sm leading-7 text-zinc-600">
-                    The collection is being prepared. Once the shop opens, you can check availability, place an order and collect from the store.
-                  </p>
-                  <a href={staffUrl} className="honor-text-button mt-7">
-                    Open staff workspace <ArrowRight size={16} />
-                  </a>
-                </div>
-                <div className="honor-shop-preview" aria-label="What you can do when the shop opens">
-                  <Package size={32} strokeWidth={1.5} className="mb-7 text-emerald-700" />
-                  <h2 className="text-lg font-semibold">A clearer way to shop</h2>
-                  <ul className="mt-6 space-y-5 text-sm text-zinc-600">
-                    <li className="flex items-center gap-3"><Search size={18} className="shrink-0 text-emerald-700" /> Check product availability</li>
-                    <li className="flex items-center gap-3"><MapPin size={18} className="shrink-0 text-emerald-700" /> Collect from the right location</li>
-                    <li className="flex items-center gap-3"><ShieldCheck size={18} className="shrink-0 text-emerald-700" /> Keep your order and receipt together</li>
-                  </ul>
-                </div>
+              <section className="honor-panel p-6 sm:p-10" aria-labelledby="shop-status-title">
+                <p className="honor-eyebrow">Honor</p>
+                <h1 id="shop-status-title" className="mt-4 text-2xl font-semibold sm:text-3xl">The shop is temporarily unavailable</h1>
+                <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">We cannot load current products or stock right now. Please try again later.</p>
+                <a href={staffUrl} className="honor-text-button mt-5">Staff sign-in <ArrowRight size={16} /></a>
               </section>
             ) : <div className="mb-8">
               <p className="honor-eyebrow">
@@ -1018,7 +989,7 @@ export default function Storefront({
                       </button>
                     </div>
                   ))}
-                  {activeView === "checkout" && (
+                  {activeView === "checkout" && customer && (
                     <form
                       id="checkout-form"
                       onSubmit={checkout}
@@ -1046,7 +1017,8 @@ export default function Storefront({
                           autoComplete="email"
                           required
                           maxLength={254}
-                          defaultValue={customer?.email || ""}
+                          value={customer.email}
+                          readOnly
                         />
                       </Field>
                       <p className="text-sm leading-6 text-zinc-500">
@@ -1054,19 +1026,7 @@ export default function Storefront({
                         collection location. Its address appears after your
                         reservation. No delivery is included.
                       </p>
-                      {!customer && (
-                        <p className="text-sm leading-6">
-                          Guest checkout is available.{" "}
-                          <a
-                            className="text-emerald-800 underline"
-                            href={href("login")}
-                            onClick={(e) => link(e, "login")}
-                          >
-                            Sign in
-                          </a>{" "}
-                          first to save this order in your account.
-                        </p>
-                      )}
+
                     </form>
                   )}
                 </div>
@@ -1093,7 +1053,13 @@ export default function Storefront({
                       Update unavailable items before continuing.
                     </p>
                   )}
-                  {activeView === "cart" ? (
+                  {!customer ? (
+                    <button className="honor-button w-full" disabled={invalidCart || !catalogue || loading} onClick={() => {
+                      sessionStorage.setItem("honor:after-login:" + slug, "checkout");
+                      navigate("login");
+                      setNotice("Sign in to continue checkout. Your cart is saved.");
+                    }}>Sign in to checkout <ArrowRight size={16} /></button>
+                  ) : activeView === "cart" ? (
                     <button
                       disabled={invalidCart || !catalogue || loading}
                       className="honor-button w-full"
@@ -1164,7 +1130,7 @@ export default function Storefront({
             >
               {!accountConfigured && (
                 <p role="status" className="honor-auth-status">
-                  Account access is being connected. You can fill in your details; submission is pending connection.
+                  Account services are temporarily unavailable. You can enter your details, but they will only be submitted when the service is available.
                 </p>
               )}
               <fieldset disabled={busy} className="space-y-5">
@@ -1432,7 +1398,7 @@ export default function Storefront({
               Confirm the address on your order before travelling.
             </p>
             {catalogueMissing ? (
-              empty("Collection details are coming soon", "The store will publish its collection locations when the shop opens.")
+              empty("Collection details unavailable", "We cannot load the store’s collection locations right now. Please try again later.")
             ) : catalogueError ? (
               <p role="alert" className="text-sm text-amber-900">
                 Collection details are unavailable right now.
@@ -1463,7 +1429,6 @@ export default function Storefront({
       <footer className="mt-12 border-t border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-5 px-5 py-8 text-sm text-zinc-500 sm:px-8">
           <p>{catalogue?.company.name && catalogue.company.name !== "Honor" ? `${catalogue.company.name} · Powered by Honor` : "Honor · Inventory, in order"}</p>
-          <a href="/pilot" className="underline underline-offset-4 hover:text-zinc-900">View demo</a>
           <a
             className="underline underline-offset-4 hover:text-zinc-900"
             href={staffUrl}

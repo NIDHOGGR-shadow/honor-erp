@@ -2,11 +2,7 @@
 
 Inventory control with a connected staff workspace and customer storefront. One backend owns stock, reservations, orders and payment state.
 
-Public product preview: https://honor-inventory-preview.zippyduck7.chatgpt.site
-
-Presentation pilot on the existing Vercel site: `/pilot`. The interactive inventory walkthrough is at `/demo#/dashboard`, starts empty, and needs no demonstration password. It is a browser preview, separate from authenticated business records. See [the presentation guide](docs/PILOT_PRESENTATION.md) before presenting.
-
-The public preview starts empty and adds no products or sample business records. Any preview changes stay in that browser. It does not provide shared stock, customer accounts or payment collection. Build this static preview with `VITE_PUBLIC_PREVIEW=true npm run build`. Leave that flag false for the connected application. See [the product roadmap](docs/PRODUCT_ROADMAP.md) for the launch sequence.
+Application: https://honor-storefront.vercel.app/ — customers browse the store; assigned staff sign in at `/workspace`. This is a real business application. Public browser walkthroughs and local-only operating modes are retired: `/demo` redirects to staff sign-in and `/pilot` redirects to the shop. No public build flag can bypass authentication.
 
 This implementation adapts Samuel's `srdataml-droid/Store-` frontend at commit `87f907442c428533d668858c815bdf33f23553c0`. No BIGGS code or private business records were reused.
 
@@ -16,12 +12,12 @@ This implementation adapts Samuel's `srdataml-droid/Store-` frontend at commit `
 - Company memberships, location permissions, invitations, suspension, company-scoped forced sign-out and protected administrator changes.
 - Managed Supabase identity integration; server-side opaque sessions in HttpOnly cookies; password recovery/change and authenticator flows. A separate development identity adapter is forbidden in production.
 - Products, serial/IMEI tracking, quantity stock, receiving, reasoned adjustments, dispatch/receipt transfers and stock reconciliation.
-- Customer shop, product details, cart, checkout reservations, private order tracking, verified account history and configured collection locations.
+- Customer shop, product details, cart, sign-in-required checkout reservations, private order tracking, verified account history and configured collection locations.
 - Paystack and Stripe hosted-checkout adapters with signed events, durable processing, amount/currency/reference verification and idempotent fulfilment.
 - Paid-order fulfilment and inspected line returns that reuse the original serial unit.
-- Responsive staff dashboard and Next.js public storefront, plus an empty browser preview at `/demo`. Test fixtures live under `tests/fixtures` and are not imported by the running app.
+- Responsive authenticated staff dashboard and Next.js public storefront. Test fixtures live under `tests/fixtures` and are not imported by the running app.
 
-This is a first implementation for review, not a running production deployment. Managed identity, merchant accounts and email require credentials and external acceptance testing. Payment simulations and fictional seed data are development-only. Shipping, automatic refunds, partial transfer receipts, purchase approvals, stock-count sessions, ML forecasts and private file uploads are not implemented.
+This is the product codebase. Hosted backend activation and acceptance checks are still outstanding. Managed identity, merchant accounts and email require credentials and external acceptance testing. Payment test helpers are confined to isolated development/test environments; the customer interface contains no simulated-payment action and the operator CLI has no sample-data seeder. Shipping, automatic refunds, partial transfer receipts, purchase approvals, stock-count sessions, ML forecasts and private file uploads are not implemented.
 
 ## Run a complete local version
 
@@ -32,7 +28,7 @@ python scripts/configure_dev.py
 docker compose -f compose.dev.yaml up --build
 ```
 
-Open `http://localhost:8000/workspace` to use an assigned staff account. Honor is one business; public business creation and public staff signup are disabled. The first administrator must have a verified identity and sign in before an operator provisions the empty business with `uv run python -m honor.cli provision-honor --email FIRST_ADMIN_EMAIL --currency NGN`. See [staff setup](docs/STAFF_ACCESS.md). Do not run the development fixture seeder for Honor setup. There is no built-in administrator password. The local development identity adapter and payment simulation collect no money and must not be deployed as production authentication.
+Open `http://localhost:8000/workspace` to use an assigned staff account. Honor is one business; public business creation and public staff signup are disabled. The first administrator must have a verified identity and sign in before an operator provisions the empty business with `uv run python -m honor.cli provision-honor --email FIRST_ADMIN_EMAIL --currency NGN`. See [staff setup](docs/STAFF_ACCESS.md). There is no built-in administrator password. The local development identity adapter and payment simulation collect no money and must not be deployed as production authentication.
 
 ## Develop separately
 
@@ -73,4 +69,8 @@ Backend integration tests require an isolated PostgreSQL database named `honor_t
 - [Stack decisions and build sequence](docs/STACK_PLAN.md)
 - [Inventory goal and wider implementation blueprint](docs/IMPLEMENTATION_PLAN.md)
 
-The Next.js customer storefront and staff entry target the existing Vercel project. The Docker API targets Render; its hosted connection remains pending. Supabase hosts PostgreSQL and managed identity. Run migrations separately with an owner connection and use a restricted database role for the application. The presentation pilot needs no backend credentials or paid resources. Cloudflare deployment files remain for the earlier experiment; they are not proof of a running backend.
+The Next.js customer storefront and staff entry target the existing Vercel project. The Docker API targets Render; its hosted connection remains pending. Supabase hosts PostgreSQL and managed identity. Run migrations separately with an owner connection and use a restricted database role for the application. Cloudflare deployment files remain for the earlier experiment; they are not proof of a running backend.
+
+## Product activation status
+
+See [the product audit](docs/PRODUCT_READINESS.md) for current implemented behavior, remaining service connections and acceptance gates. Interface polish is not evidence of a working hosted stock or payment workflow. Legacy layout-reference code retained for isolated tests is not imported by either deployed frontend entry point. Test fixtures never populate Honor.

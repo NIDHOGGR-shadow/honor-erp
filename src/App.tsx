@@ -33,9 +33,9 @@ import { ReportsModule } from "./components/reports/ReportsModule";
 import { StaffModule } from "./components/staff/StaffModule";
 import { SettingsModule } from "./components/settings/SettingsModule";
 import { canSellOrOpenPos, canAccessModule } from "./utils/formatters";
-import PresentationGuide from "./presentation/PresentationGuide";
 
-const AppContent: React.FC<{presentation?: boolean}> = ({presentation = false}) => {
+// Historical layout reference used by isolated tests; never imported by a shipped entry point.
+const AppContent: React.FC = () => {
   const {
     activeModule,
     setActiveModule,
@@ -151,7 +151,7 @@ const AppContent: React.FC<{presentation?: boolean}> = ({presentation = false}) 
         {/* Viewport Content Area with mobile bottom padding to prevent nav overlap */}
         <main className="honor-workspace-main min-w-0 flex-1 p-4 sm:p-7 lg:p-10">
           <div className="max-w-7xl mx-auto w-full">
-            {presentation ? <PresentationGuide /> : (
+
             <div
               className="mb-6 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500"
               role="status"
@@ -162,7 +162,6 @@ const AppContent: React.FC<{presentation?: boolean}> = ({presentation = false}) 
               </span>
               <span>Company-controlled inventory</span>
             </div>
-            )}
             {renderActiveModule()}
           </div>
         </main>
@@ -177,10 +176,10 @@ const AppContent: React.FC<{presentation?: boolean}> = ({presentation = false}) 
   );
 };
 
-export default function App({ initialData, presentation = false }: { initialData?: Partial<PreviewData>; presentation?: boolean } = {}) {
+export default function App({ initialData }: { initialData?: Partial<PreviewData> } = {}) {
   return (
     <AppProvider initialData={initialData}>
-      <AppContent presentation={presentation} />
+      <AppContent />
     </AppProvider>
   );
 }

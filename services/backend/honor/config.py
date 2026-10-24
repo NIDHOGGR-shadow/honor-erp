@@ -69,7 +69,7 @@ class Settings(BaseSettings):
         if self.payment_provider in {"paystack", "stripe"} and (
             not self.payment_secret or not self.merchant_company_id
         ):
-            raise ValueError("Configure a payment secret and the one authorised pilot merchant company")
+            raise ValueError("Configure a payment secret and the authorised merchant company")
         if self.payment_provider == "stripe" and not self.payment_webhook_secret:
             raise ValueError("Configure Stripe webhook signing secret")
         if not 1 <= self.session_hours <= 24 or not 1 <= self.reservation_minutes <= 60:

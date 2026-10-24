@@ -12,7 +12,7 @@ export default async function Page({
       (entry): entry is [string, string] => typeof entry[1] === "string",
     ),
   ).toString();
-  const props = await storefrontProps(process.env.HONOR_STORE_SLUG || "");
+  const props = await storefrontProps(process.env.HONOR_STORE_SLUG || "honor");
   return (
     <Storefront
       {...props}

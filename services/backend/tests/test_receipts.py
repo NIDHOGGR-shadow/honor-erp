@@ -238,26 +238,28 @@ def test_paystack_channels_and_payment_check_are_server_authoritative(env, monke
 
     monkeypatch.setattr(payments, "external", external)
     app = create_app(settings, env["sessions"])
-    with TestClient(app) as guest:
+    with TestClient(app) as customer:
+        assert customer.post("/api/v1/auth/login", json={"email": "admin@example.test", "password": PASSWORD}).status_code == 200
         headers = {"X-Order-Key": token}
         pay = f"/api/v1/checkouts/{order_id}/payment"
-        assert guest.post(pay, headers=headers).status_code == 200
-        assert guest.post(pay, headers=headers).status_code == 200
+        assert customer.post(pay, headers=headers).status_code == 200
+        assert customer.post(pay, headers=headers).status_code == 200
         assert len(initializations) == 1 and initializations[0]["channels"] == ["card", "bank_transfer"]
-        assert guest.get("/api/v1/storefront/test-shop").json()["payment_methods"] == [
+        assert customer.get("/api/v1/storefront/test-shop").json()["payment_methods"] == [
             "card",
             "bank_transfer",
         ]
         verify = f"/api/v1/customer/orders/{order_id}/verify-payment"
-        assert guest.post(verify).status_code == 404
+        with TestClient(app) as signed_out:
+            assert signed_out.post(verify).status_code == 401
         verification["amount"] = 1
-        assert guest.post(verify, headers=headers).status_code == 409
+        assert customer.post(verify, headers=headers).status_code == 409
         assert (
-            guest.get(f"/api/v1/customer/orders/{order_id}/receipt.pdf", headers=headers).status_code == 409
+            customer.get(f"/api/v1/customer/orders/{order_id}/receipt.pdf", headers=headers).status_code == 409
         )
         verification["amount"] = 200000
-        assert guest.post(verify, headers=headers).json()["payment_status"] == "PAID"
-        assert guest.post(verify, headers=headers).status_code == 200
+        assert customer.post(verify, headers=headers).json()["payment_status"] == "PAID"
+        assert customer.post(verify, headers=headers).status_code == 200
         with env["sessions"]() as db:
             attempt = db.scalar(select(PaymentAttempt).where(PaymentAttempt.order_id == order_id))
             assert attempt.channel == "bank_transfer" and attempt.paid_reference == "bank-transaction"
