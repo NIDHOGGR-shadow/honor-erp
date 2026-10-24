@@ -1,100 +1,40 @@
-# Creates two paid compute services only when an operator applies this Blueprint.
-# Review Render's cost estimate and supply the restricted runtime credentials.
-# Database migrations are a separate operator step; no owner URL belongs here.
+# Free pilot: one API service only. No paid worker, cron, database or disk.
+# Keep the existing Honor secrets; provide values privately during setup.
 previews:
   generation: "off"
 
-projects:
-  - name: Honor
-    environments:
-      - name: production
-        envVarGroups:
-          - name: honor-production-defaults
-            envVars:
-              - key: HONOR_ENVIRONMENT
-                value: production
-              - key: HONOR_AUTH_PROVIDER
-                value: supabase
-              - key: HONOR_COOKIE_SECURE
-                value: "true"
-              - key: HONOR_PAYMENT_PROVIDER
-                value: disabled
-        services:
-          - type: web
-            name: honor-api
-            runtime: docker
-            repo: https://github.com/NIDHOGGR-shadow/honor-erp
-            branch: main
-            region: frankfurt
-            plan: 0.5c-512mb
-            numInstances: 1
-            autoDeployTrigger: checksPass
-            dockerContext: .
-            dockerfilePath: ./Dockerfile
-            healthCheckPath: /api/health
-            envVars:
-              - fromGroup: honor-production-defaults
-              - key: HONOR_SESSION_SECRET
-                generateValue: true
-              - key: HONOR_DATABASE_URL
-                sync: false
-              - key: HONOR_SUPABASE_URL
-                sync: false
-              - key: HONOR_SUPABASE_PUBLISHABLE_KEY
-                sync: false
-              - key: HONOR_APP_ORIGIN
-                sync: false
-              - key: HONOR_SHOP_ORIGIN
-                sync: false
-              - key: HONOR_ALLOWED_ORIGINS
-                sync: false
-
-          - type: worker
-            name: honor-worker
-            runtime: docker
-            repo: https://github.com/NIDHOGGR-shadow/honor-erp
-            branch: main
-            region: frankfurt
-            plan: 0.5c-512mb
-            numInstances: 1
-            autoDeployTrigger: checksPass
-            dockerContext: .
-            dockerfilePath: ./Dockerfile
-            dockerCommand: .venv/bin/python -m honor.jobs
-            envVars:
-              - fromGroup: honor-production-defaults
-              - key: HONOR_SESSION_SECRET
-                fromService:
-                  type: web
-                  name: honor-api
-                  envVarKey: HONOR_SESSION_SECRET
-              - key: HONOR_DATABASE_URL
-                fromService:
-                  type: web
-                  name: honor-api
-                  envVarKey: HONOR_DATABASE_URL
-              - key: HONOR_SUPABASE_URL
-                fromService:
-                  type: web
-                  name: honor-api
-                  envVarKey: HONOR_SUPABASE_URL
-              - key: HONOR_SUPABASE_PUBLISHABLE_KEY
-                fromService:
-                  type: web
-                  name: honor-api
-                  envVarKey: HONOR_SUPABASE_PUBLISHABLE_KEY
-              - key: HONOR_APP_ORIGIN
-                fromService:
-                  type: web
-                  name: honor-api
-                  envVarKey: HONOR_APP_ORIGIN
-              - key: HONOR_SHOP_ORIGIN
-                fromService:
-                  type: web
-                  name: honor-api
-                  envVarKey: HONOR_SHOP_ORIGIN
-              - key: HONOR_ALLOWED_ORIGINS
-                fromService:
-                  type: web
-                  name: honor-api
-                  envVarKey: HONOR_ALLOWED_ORIGINS
+services:
+  - type: web
+    name: honor-api
+    runtime: docker
+    repo: https://github.com/NIDHOGGR-shadow/honor-erp
+    branch: main
+    region: frankfurt
+    plan: free
+    autoDeployTrigger: commit
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: HONOR_ENVIRONMENT
+        value: production
+      - key: HONOR_AUTH_PROVIDER
+        value: supabase
+      - key: HONOR_COOKIE_SECURE
+        value: "true"
+      - key: HONOR_PAYMENT_PROVIDER
+        value: disabled
+      - key: HONOR_SESSION_SECRET
+        sync: false
+      - key: HONOR_DATABASE_URL
+        sync: false
+      - key: HONOR_SUPABASE_URL
+        sync: false
+      - key: HONOR_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: HONOR_APP_ORIGIN
+        sync: false
+      - key: HONOR_SHOP_ORIGIN
+        sync: false
+      - key: HONOR_ALLOWED_ORIGINS
+        sync: false
