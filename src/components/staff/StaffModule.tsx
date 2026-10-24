@@ -26,7 +26,7 @@ const CAPABILITIES = [
     "No",
   ],
   ["Record sales", "Yes", "Yes", "No", "Yes"],
-  ["See costs & stock value", "Yes", "Yes", "Yes", "No"],
+  ["See costs & stock value", "Yes", "Yes", "No", "No"],
   ["Manage people, roles & company settings", "Yes", "No", "No", "No"],
 ];
 export const StaffModule: React.FC = () => {
@@ -209,7 +209,7 @@ export const StaffModule: React.FC = () => {
           </table>
           {visible.length === 0 && (
             <p className="p-8 text-sm text-zinc-500">
-              No staff match your search.
+              {staffList.length ? "No staff match your search." : "No staff assigned yet. Your administrator controls who joins Honor."}
             </p>
           )}
         </div>

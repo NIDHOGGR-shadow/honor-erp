@@ -86,8 +86,8 @@ export function formatDateOnly(isoString: string): string {
  * ● full   ◐ limited   ○ none
  */
 export function canViewCostPrice(role: UserRole): boolean {
-  // Owner: full, Manager: full, Sales: none, Inventory: cost only
-  return role === "OWNER" || role === "MANAGER" || role === "INVENTORY";
+  // Match the connected API: only company administrators and managers see costs.
+  return role === "OWNER" || role === "MANAGER";
 }
 
 export function canViewMargins(role: UserRole): boolean {

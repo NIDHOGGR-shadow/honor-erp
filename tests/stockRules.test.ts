@@ -2,6 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { changeStock, validateDevices } from "../src/utils/stockRules";
 import type { StockLevel, StockUnit } from "../src/types";
+import { canViewCostPrice } from "../src/utils/formatters";
+
+test("preview cost visibility matches the connected administrator and manager policy", () => {
+  assert.equal(canViewCostPrice("OWNER"), true);
+  assert.equal(canViewCostPrice("MANAGER"), true);
+  assert.equal(canViewCostPrice("INVENTORY"), false);
+  assert.equal(canViewCostPrice("SALES"), false);
+});
 const levels: StockLevel[] = [
   {
     id: "a",

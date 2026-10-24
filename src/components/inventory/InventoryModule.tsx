@@ -1007,7 +1007,7 @@ export const InventoryModule: React.FC = () => {
               {/* Permanent Tracking Type Choice */}
               <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-xl">
                 <label className="block text-xs font-bold text-zinc-900 mb-1">
-                  Inventory Tracking Type (Normative Rule)
+                  Stock tracking method
                 </label>
                 <p className="text-[11px] text-zinc-500 mb-2">
                   Tracking type is set at creation and cannot be modified once
