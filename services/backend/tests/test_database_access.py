@@ -11,6 +11,14 @@ from sqlalchemy.exc import DBAPIError
 from honor.database_access import audit, grant_runtime
 
 
+def sqlstate(error):
+    # Psycopg exposes an attribute; pg8000 preserves PostgreSQL's error fields.
+    original = error.value.orig
+    if hasattr(original, "sqlstate"):
+        return original.sqlstate
+    return original.args[0]["C"]
+
+
 @pytest.fixture
 def runtime_role(database_factory):
     engine, _ = database_factory
@@ -69,7 +77,7 @@ def test_runtime_can_post_stock_but_cannot_erase_history(env, database_factory, 
             with engine.begin() as db:
                 db.execute(text(f'SET LOCAL ROLE "{runtime_role}"'))
                 db.execute(text(statement))
-        assert error.value.orig.sqlstate == "42501"
+        assert sqlstate(error) == "42501"
 
 
 def test_grants_remove_old_column_permissions(env, database_factory, runtime_role):
@@ -175,7 +183,7 @@ def test_private_migration_revokes_data_api_access(database_factory):
                 with engine.begin() as db:
                     db.execute(text(f'SET LOCAL ROLE "{role}"'))
                     db.execute(text("SELECT * FROM honor.identities"))
-            assert error.value.orig.sqlstate == "42501"
+            assert sqlstate(error) == "42501"
     finally:
         with engine.begin() as db:
             for role in created:

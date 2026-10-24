@@ -3,9 +3,9 @@ from sqlalchemy.orm import sessionmaker
 from fastapi import Request
 
 
-def database(url: str, *, poolclass=None):
+def database(url: str, *, poolclass=None, connect_args=None):
     pool = {"poolclass": poolclass} if poolclass else {"pool_size": 5, "max_overflow": 0}
-    engine = create_engine(url, pool_pre_ping=True, **pool)
+    engine = create_engine(url, pool_pre_ping=True, connect_args=connect_args or {}, **pool)
     return engine, sessionmaker(engine, expire_on_commit=False)
 
 

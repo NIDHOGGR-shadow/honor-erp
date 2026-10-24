@@ -18,6 +18,8 @@ def test_export_matches_migrations_and_never_connects(monkeypatch):
 
 def test_sql_installs_empty_tables_and_refuses_existing_schema(database_factory):
     engine, _ = database_factory
+    if engine.dialect.driver != "psycopg":
+        pytest.skip("The operator-only multi-statement bootstrap uses Psycopg's raw cursor API")
     schema = "honor_bootstrap_" + uuid4().hex
     # Exercise the complete exported SQL in an isolated namespace within the
     # explicitly disposable test database, preserving other workflow fixtures.

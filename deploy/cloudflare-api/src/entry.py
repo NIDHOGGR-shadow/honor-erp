@@ -3,14 +3,7 @@
 import asyncio
 import time
 
-from sqlalchemy.engine import make_url
-from sqlalchemy.exc import SQLAlchemyError
 from workers import Response, WorkerEntrypoint, asgi
-
-from honor.config import Settings
-from honor.inventory import expire
-from honor.jobs import run_once
-from honor.worker_adapter import worker_app
 
 _lock = asyncio.Lock()
 _app = None
@@ -20,6 +13,12 @@ def load_app(env):
     global _app
     if _app is not None:
         return _app
+    # Keep the deployment snapshot small. Imports are cached after the first
+    # request; constructing the app never opens a database connection.
+    from sqlalchemy.exc import SQLAlchemyError
+    from honor.config import Settings
+    from honor.worker_adapter import worker_app
+
     values = {}
     for field in Settings.model_fields:
         try:
@@ -31,15 +30,10 @@ def load_app(env):
     # A deployment cannot opt into development identities or simulated payments.
     values["environment"] = "production"
     settings = Settings(_env_file=None, **values)
-    url = make_url(settings.database_url)
-    if url.query.get("sslmode") not in {"require", "verify-ca", "verify-full"}:
-        raise ValueError("Database TLS is required")
-    if (url.username or "").split(".")[0] != "honor_api":
-        raise ValueError("Use the restricted Honor runtime role")
-    if url.drivername not in {"postgresql", "postgresql+psycopg"}:
-        raise ValueError("Use PostgreSQL with Psycopg")
-    settings = settings.model_copy(update={"database_url": url.set(drivername="postgresql+psycopg").render_as_string(hide_password=False)})
-    _app = worker_app(settings)
+    try:
+        _app = worker_app(settings)
+    except SQLAlchemyError:
+        raise ValueError("Database configuration is invalid") from None
     return _app
 
 
@@ -48,7 +42,7 @@ class Default(WorkerEntrypoint):
         async with _lock:
             try:
                 app = load_app(self.env)
-            except (ValueError, TypeError, AttributeError, SQLAlchemyError):
+            except (ValueError, TypeError, AttributeError):
                 # Configuration and provider errors must not disclose secret values.
                 return Response.from_json(
                     {"detail": "Honor API configuration is incomplete."},
@@ -61,8 +55,11 @@ class Default(WorkerEntrypoint):
         async with _lock:
             try:
                 app = load_app(self.env)
-            except (ValueError, TypeError, AttributeError, SQLAlchemyError):
+            except (ValueError, TypeError, AttributeError):
                 raise RuntimeError("Honor API configuration is incomplete.") from None
+            from honor.inventory import expire
+            from honor.jobs import run_once
+
             sessions, settings = app.state.sessions, app.state.settings
             with sessions() as db:
                 expire(db)

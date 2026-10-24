@@ -5,10 +5,9 @@ requires-python = ">=3.13"
 dependencies = [
   "fastapi>=0.115,<1",
   "sqlalchemy>=2.0,<3",
-  "psycopg[binary]>=3.2,<4",
+  "pg8000>=1.31,<2",
   "pydantic-settings>=2.7,<3",
   "httpx>=0.28,<1",
-  "argon2-cffi>=23,<26",
   "cryptography==47.0.0",
   "reportlab>=4.4,<5",
 ]

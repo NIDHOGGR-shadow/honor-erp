@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+from pathlib import Path
 
 
 def test_core_api_import_does_not_initialize_pdf_or_development_hashing():
@@ -15,5 +16,20 @@ def test_core_api_import_does_not_initialize_pdf_or_development_hashing():
         capture_output=True,
         text=True,
         timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_worker_entry_does_not_import_the_application_during_snapshot():
+    entry = Path(__file__).resolve().parents[3] / "deploy/cloudflare-api/src/entry.py"
+    result = subprocess.run(
+        [sys.executable, "-c", (
+            "import runpy,sys,types; "
+            "workers=types.ModuleType('workers'); "
+            "workers.Response=object; workers.WorkerEntrypoint=object; workers.asgi=object(); "
+            "sys.modules['workers']=workers; runpy.run_path(sys.argv[1]); "
+            "assert not any(m in sys.modules for m in ('honor','sqlalchemy','fastapi','cryptography'))"
+        ), str(entry)],
+        capture_output=True, text=True, timeout=30,
     )
     assert result.returncode == 0, result.stderr
