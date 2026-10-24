@@ -55,6 +55,8 @@ jobs:
       - run: uv run pytest -q
   python-worker:
     runs-on: ubuntu-latest
+    env:
+      UV_SYSTEM_PYTHON: "true"
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -63,10 +65,11 @@ jobs:
           node-version: "24"
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - run: npm ci
       - run: pip install uv==0.13.4
       - run: npm run build:api-worker
-      - run: uv run --frozen pywrangler deploy --dry-run
-        working-directory: build/cloudflare-api
+      - run: npm run check:api-worker
       - run: node scripts/test-python-worker.mjs
+        env:
+          UV_SYSTEM_PYTHON: "false"

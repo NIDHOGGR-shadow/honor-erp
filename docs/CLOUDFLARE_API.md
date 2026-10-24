@@ -28,6 +28,10 @@ Changing runtime values or saving new build commands does not compile and replac
 
 Both Worker configurations set `keep_vars: true` so subsequent CLI deployments retain values entered in the dashboard. Secrets remain managed in Cloudflare and are never copied into the repository.
 
+## Build-image Python selection
+
+The deploy, preview and CI commands use a shared runner that launches the pinned uv executable directly, sets `UV_SYSTEM_PYTHON=false`, and removes inherited interpreter selectors. Invoking `python3 -m uv` injects `UV_INTERNAL__PARENT_INTERPRETER`, which otherwise propagates to the package-installer subprocess and makes it target native Python instead of the Pyodide virtual environment. Keep the dashboard npm commands unchanged; the runner applies this fix before package installation. CI runs with Python 3.14 and an inherited `UV_SYSTEM_PYTHON=true` to exercise the deployment environment.
+
 ## Runtime configuration
 
 Set these in Cloudflare Worker runtime settings, never frontend code:
