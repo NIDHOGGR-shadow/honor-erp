@@ -2370,6 +2370,7 @@ function SignIn({
                 <input
                   required
                   name="password"
+                  aria-label={mode === "reset" ? "New password" : "Password"}
                   type={showPassword ? "text" : "password"}
                   maxLength={256}
                   minLength={mode === "register" || mode === "reset" ? 12 : 1}

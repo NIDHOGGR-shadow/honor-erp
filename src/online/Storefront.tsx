@@ -1153,6 +1153,9 @@ export default function Storefront({
             <p className="mt-3 text-sm leading-6 text-zinc-500">
               Keep your orders together and make your next visit easier.
             </p>
+            <a href={staffUrl} className="honor-text-button mt-3">
+              Open staff workspace <ArrowRight size={15} />
+            </a>
             <form
               key={activeView}
               onSubmit={auth}
@@ -1190,6 +1193,7 @@ export default function Storefront({
                   <div className="relative">
                     <input
                       name="password"
+                      aria-label="Password"
                       className={input + " pr-12"}
                       type={showPassword ? "text" : "password"}
                       autoComplete={
@@ -1207,6 +1211,7 @@ export default function Storefront({
                       aria-label={
                         showPassword ? "Hide password" : "Show password"
                       }
+                      aria-pressed={showPassword}
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
