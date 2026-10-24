@@ -58,3 +58,11 @@ Native adapter tests are not proof of Workers runtime compatibility. CI separate
 - https://developers.cloudflare.com/workers/languages/python/stdlib/
 - https://developers.cloudflare.com/workers/languages/python/packages/fastapi/
 - https://blog.pyodide.org/posts/jspi/
+
+## Hosted startup memory validation
+
+The hosted upload progressed past dependency installation and failed with error 10021, `Python startup exceeded memory limits`. A deployment dry run and local workerd smoke test do not enforce the hosted startup-memory acceptance gate.
+
+PDF-generation imports (including Pillow) are now deferred until an authorized receipt is rendered. Development-only Argon2 initialization is deferred until development authentication is used; the Worker entrypoint still prohibits that identity mode. Production token encryption, the managed identity provider and inventory authorization are unchanged.
+
+A fresh-process regression test ensures the core API import does not initialize ReportLab, Pillow or Argon2. Existing receipt and development-authentication tests still exercise those features. Native memory observations are diagnostic only, not a measurement of WebAssembly memory. The hosted API, authentication, receipt generation and jobs must still fit Cloudflare's isolate memory/CPU limits before business use. Moving optional imports does not establish that the full workload fits the free plan.

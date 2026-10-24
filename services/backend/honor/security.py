@@ -3,10 +3,9 @@ import hashlib
 import json
 import secrets
 from datetime import timedelta
+from functools import lru_cache
 
 import httpx
-from argon2 import PasswordHasher
-from argon2.exceptions import VerificationError, InvalidHashError
 from cryptography.fernet import Fernet
 from fastapi import HTTPException, Request, Response
 from sqlalchemy import select
@@ -14,7 +13,23 @@ from sqlalchemy import select
 from .models import CompanySessionBlock, Identity, LoginSession, Membership, LocationGrant, now, uid
 from .transport import request as http_request
 
-hasher = PasswordHasher()
+@lru_cache(maxsize=1)
+def _password_hasher():
+    # Production uses Supabase Auth; only local development needs Argon2.
+    from argon2 import PasswordHasher
+
+    return PasswordHasher()
+
+
+class _LazyPasswordHasher:
+    def hash(self, *args, **kwargs):
+        return _password_hasher().hash(*args, **kwargs)
+
+    def verify(self, *args, **kwargs):
+        return _password_hasher().verify(*args, **kwargs)
+
+
+hasher = _LazyPasswordHasher()
 COOKIE = "honor_session"
 
 
@@ -70,6 +85,8 @@ def token_mfa(access_token):
 def identify(db, settings, email, password):
     email = email.strip().lower()
     if settings.auth_provider == "development":
+        from argon2.exceptions import VerificationError, InvalidHashError
+
         user = db.scalar(select(Identity).where(Identity.email == email))
         try:
             if user and user.password_hash and hasher.verify(user.password_hash, password):

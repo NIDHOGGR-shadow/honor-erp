@@ -5,14 +5,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
-import reportlab
 from fastapi import HTTPException
-from reportlab.lib import colors
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from sqlalchemy import select
 
 from .inventory import lines
@@ -56,6 +49,15 @@ def receipt_data(db, order):
 
 
 def receipt_pdf(data):
+    # PDF rendering also imports Pillow. Keep it off the inventory/auth startup path.
+    import reportlab
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
     if "HonorReceipt" not in pdfmetrics.getRegisteredFontNames():
         font = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
         if not font.exists():
