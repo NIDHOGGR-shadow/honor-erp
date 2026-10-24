@@ -33,8 +33,9 @@ import { ReportsModule } from "./components/reports/ReportsModule";
 import { StaffModule } from "./components/staff/StaffModule";
 import { SettingsModule } from "./components/settings/SettingsModule";
 import { canSellOrOpenPos, canAccessModule } from "./utils/formatters";
+import PresentationGuide from "./presentation/PresentationGuide";
 
-const AppContent: React.FC = () => {
+const AppContent: React.FC<{presentation?: boolean}> = ({presentation = false}) => {
   const {
     activeModule,
     setActiveModule,
@@ -150,6 +151,7 @@ const AppContent: React.FC = () => {
         {/* Viewport Content Area with mobile bottom padding to prevent nav overlap */}
         <main className="flex-1 p-4 sm:p-7 lg:p-10 pb-24 md:pb-10 overflow-x-hidden">
           <div className="max-w-7xl mx-auto w-full">
+            {presentation ? <PresentationGuide /> : (
             <div
               className="mb-6 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500"
               role="status"
@@ -160,6 +162,7 @@ const AppContent: React.FC = () => {
               </span>
               <span>Company-controlled inventory</span>
             </div>
+            )}
             {renderActiveModule()}
           </div>
         </main>
@@ -174,10 +177,10 @@ const AppContent: React.FC = () => {
   );
 };
 
-export default function App({ initialData }: { initialData?: Partial<PreviewData> } = {}) {
+export default function App({ initialData, presentation = false }: { initialData?: Partial<PreviewData>; presentation?: boolean } = {}) {
   return (
     <AppProvider initialData={initialData}>
-      <AppContent />
+      <AppContent presentation={presentation} />
     </AppProvider>
   );
 }

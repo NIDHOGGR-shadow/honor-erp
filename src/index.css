@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @source "./online";
+@source "./components";
+@source "./presentation";
+@source "./App.tsx";
 
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
@@ -78,6 +81,36 @@ button:disabled {
   border-radius: 18px;
   padding: 28px;
   background: rgb(255 255 255 / 85%);
+}
+.honor-pilot-hero {
+  display: grid;
+  align-items: center;
+  gap: 40px;
+  border-radius: 24px;
+  padding: clamp(28px, 5vw, 56px);
+  background: #17372d;
+  color: #fff;
+}
+.honor-pilot-summary {
+  border: 1px solid rgb(221 239 216 / 20%);
+  border-radius: 18px;
+  padding: 28px;
+  background: rgb(255 255 255 / 4%);
+}
+.honor-pilot-stop {
+  display: block;
+  border: 1px solid #dce6df;
+  border-radius: 16px;
+  padding: 26px;
+  background: white;
+  transition: border-color .15s, box-shadow .15s;
+}
+.honor-pilot-stop:hover {
+  border-color: #a7c7a0;
+  box-shadow: 0 5px 18px rgb(23 55 45 / 5%);
+}
+@media (min-width: 900px) {
+  .honor-pilot-hero { grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr); gap: 56px; }
 }
 @media (min-width: 900px) {
   .honor-shop-welcome {

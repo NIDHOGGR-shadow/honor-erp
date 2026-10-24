@@ -4,6 +4,8 @@ Inventory control with a connected staff workspace and customer storefront. One 
 
 Public product preview: https://honor-inventory-preview.zippyduck7.chatgpt.site
 
+Presentation pilot on the existing Vercel site: `/pilot`. The interactive inventory walkthrough is at `/demo#/dashboard`, starts empty, and needs no demonstration password. It is a browser preview, separate from authenticated business records. See [the presentation guide](docs/PILOT_PRESENTATION.md) before presenting.
+
 The public preview starts empty and adds no products or sample business records. Any preview changes stay in that browser. It does not provide shared stock, customer accounts or payment collection. Build this static preview with `VITE_PUBLIC_PREVIEW=true npm run build`. Leave that flag false for the connected application. See [the product roadmap](docs/PRODUCT_ROADMAP.md) for the launch sequence.
 
 This implementation adapts Samuel's `srdataml-droid/Store-` frontend at commit `87f907442c428533d668858c815bdf33f23553c0`. No BIGGS code or private business records were reused.
@@ -30,7 +32,7 @@ python scripts/configure_dev.py
 docker compose -f compose.dev.yaml up --build
 ```
 
-Open `http://localhost:8000/workspace`, register with your email and chosen password, then create the company. Its inventory starts empty. Add locations and products only when you are ready. Do not run the development fixture seeder for Honor setup. There is no built-in administrator account or password. Production registration requires configured Supabase identity and email; the local development adapter and payment simulation collect no money and must not be deployed as production authentication.
+Open `http://localhost:8000/workspace` to use an assigned staff account. Honor is one business; public business creation and public staff signup are disabled. The first administrator must have a verified identity and sign in before an operator provisions the empty business with `uv run python -m honor.cli provision-honor --email FIRST_ADMIN_EMAIL --currency NGN`. See [staff setup](docs/STAFF_ACCESS.md). Do not run the development fixture seeder for Honor setup. There is no built-in administrator password. The local development identity adapter and payment simulation collect no money and must not be deployed as production authentication.
 
 ## Develop separately
 
@@ -71,4 +73,4 @@ Backend integration tests require an isolated PostgreSQL database named `honor_t
 - [Stack decisions and build sequence](docs/STACK_PLAN.md)
 - [Inventory goal and wider implementation blueprint](docs/IMPLEMENTATION_PLAN.md)
 
-The Next.js customer storefront targets Vercel. The staff workspace targets Cloudflare Pages with a same-origin API proxy. The existing Docker image runs FastAPI on a PostgreSQL-capable host and can also serve the staff frontend if needed. Supabase hosts PostgreSQL and managed identity. Run migrations separately with an owner connection and use a restricted database role for the application. No resources have been provisioned or subscriptions purchased by this change.
+The Next.js customer storefront and staff entry target the existing Vercel project. The Docker API targets Render; its hosted connection remains pending. Supabase hosts PostgreSQL and managed identity. Run migrations separately with an owner connection and use a restricted database role for the application. The presentation pilot needs no backend credentials or paid resources. Cloudflare deployment files remain for the earlier experiment; they are not proof of a running backend.
