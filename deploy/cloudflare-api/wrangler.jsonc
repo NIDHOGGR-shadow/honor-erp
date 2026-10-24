@@ -2,12 +2,19 @@
   "name": "honor-erp",
   "main": "src/entry.py",
   "compatibility_date": "2026-10-24",
-  "compatibility_flags": ["python_workers"],
+  "compatibility_flags": [
+    "python_workers"
+  ],
   "workers_dev": true,
-  "triggers": { "crons": ["* * * * *"] },
+  "triggers": {
+    "crons": [
+      "* * * * *"
+    ]
+  },
   "vars": {
     "HONOR_AUTH_PROVIDER": "supabase",
     "HONOR_COOKIE_SECURE": "true",
     "HONOR_PAYMENT_PROVIDER": "disabled"
-  }
+  },
+  "keep_vars": true
 }

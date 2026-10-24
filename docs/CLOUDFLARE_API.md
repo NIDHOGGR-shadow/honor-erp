@@ -22,6 +22,12 @@ Existing Worker `honor-erp`; repository root `/`; branch `main`:
 
 The staging script copies backend source, entrypoint, dependency lock and Python version to ignored `build/cloudflare-api`. It does not copy environment files, migrations, test fixtures or frontend assets. The deploy command uses the staged API configuration rather than either frontend configuration.
 
+## Applying changed build settings
+
+Changing runtime values or saving new build commands does not compile and replace the running gateway. Start a fresh Git build from the API release on `main`. Its logs must show `Honor API Worker staged` followed by `pywrangler deploy`; a dashboard variable-only deployment of the previous gateway cannot activate the Python API.
+
+Both Worker configurations set `keep_vars: true` so subsequent CLI deployments retain values entered in the dashboard. Secrets remain managed in Cloudflare and are never copied into the repository.
+
 ## Runtime configuration
 
 Set these in Cloudflare Worker runtime settings, never frontend code:
