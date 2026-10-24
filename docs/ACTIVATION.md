@@ -1,7 +1,7 @@
 # Activate Honor
 
-Updated 24 October 2026. This is the remaining deployment sequence, not a claim
-that the API, worker or database has been activated.
+Updated 24 October 2026. The database is installed. This is the remaining
+deployment sequence; the API and worker have not yet been activated.
 
 ## Current state
 
@@ -9,26 +9,29 @@ that the API, worker or database has been activated.
 | --- | --- |
 | GitHub | Private `NIDHOGGR-shadow/honor-erp`; staff/customer flows and PostgreSQL permission checks are implemented |
 | Vercel | `honor-storefront` production build is READY; dashboard at `/workspace`; hosting authentication may restrict visitors |
-| Honor Supabase target | `uxbpiigidvmlfwysomnl`, from the requested dashboard URL; the connected plugin still returns permission denied |
-| Existing Supabase projects | Novaxis and the personal project remain unchanged |
-| Database installer | `deploy/honor-bootstrap.sql`, generated from all current Alembic migrations, creates an empty private schema |
+| Honor Supabase target | `uxbpiigidvmlfwysomnl`, accessible through the connection named `honor`; healthy PostgreSQL 17.11 |
+| Database | Installed at Alembic revision `0004`: 22 private tables, zero companies, identities, products, orders or stock movements |
+| Backend database login | Restricted `honor_api` created; its generated password is stored encrypted in Supabase Vault, with no runtime access to Vault |
+| Auth endpoint | Public settings return HTTP 200; email signup enabled and confirmation required; hosted login/email delivery still untested |
 | API and worker | `render.yaml` defines both services; it has not been applied |
 | Payments | Disabled until merchant configuration and provider test-mode acceptance are complete |
 
-## 1. Authorize the intended project
+## 1. Project connection is authorized
 
-Use the Supabase account and organization that own
-`uxbpiigidvmlfwysomnl` when authorizing the Supabase connection in ChatGPT.
-Grant the project/database access needed for the requested setup. The project
-must become readable through the connection before an agent can install its
-schema. Opening its dashboard or installing agent skills does not update OAuth
-access to the project.
+The account connection named `honor` can now read and migrate
+`uxbpiigidvmlfwysomnl`. Its organization is `lmvsuzcbvhimtpviuaeq`. Project
+authorization and initial setup are complete. See [the live database
+verification](LIVE_DATABASE.md) for the applied changes and checks.
 
 Do not paste database passwords, access tokens or service-role keys into chat.
 Honor needs a publishable Auth key and a restricted PostgreSQL runtime login;
 the migration-owner credential stays with the database operator.
 
 ## 2. Install the empty database
+
+This step is complete for the current project. The following are recovery and
+fresh-environment instructions; do not rerun the fresh installer on the installed
+project.
 
 The preferred operator route is `uv run alembic upgrade head` from
 `services/backend`, with the migration-owner TLS URL set securely in
@@ -53,8 +56,22 @@ Keep `honor` outside the Supabase Data API's exposed schemas. Create a dedicated
 non-owner PostgreSQL login securely. With the owner URL, run
 `uv run python -m honor.database_access grant-runtime --role honor_api`, using
 the actual runtime role name if different. Switch to its TLS URL and run
-`uv run python -m honor.database_access audit`. See [the security
-review](DATABASE_SECURITY.md) for its checks and limitations.
+`uv run python -m honor.database_access audit`. See [the live
+verification](LIVE_DATABASE.md) for its checks and limitations.
+
+For the current project, first-time runtime setup was applied using
+[`deploy/honor-runtime-role.sql`](../deploy/honor-runtime-role.sql). Its password
+was generated inside PostgreSQL and saved as the Vault secret
+`honor_runtime_database_password`. Only a trusted operator should retrieve it
+for the backend host's secret configuration. Do not put it in chat, GitHub or a
+browser variable, and do not rerun this script to rotate it.
+
+Render requires the actual shared Session pooler hostname from Supabase's
+**Connect > Session pooler** panel. Do not infer the pooler cluster index from
+the region. Use port `5432`, TLS and username
+`honor_api.uxbpiigidvmlfwysomnl` in the runtime SQLAlchemy URL. The direct database
+host normally requires IPv6, which Render does not support without Supabase's
+paid IPv4 add-on. No add-on is needed for the shared pooler.
 
 ## 3. Review and deploy the API and worker
 
@@ -64,6 +81,11 @@ plan for each service. Both are paid services. Review the current Render cost
 estimate and confirm the intended workspace before applying this Blueprint.
 No Render Postgres database is created: both services use the Honor Supabase
 runtime URL. Do not reuse a resource name already assigned to another app.
+
+The current baseline compute quote is $7/month per service, $14/month for the
+API and worker together, before taxes, usage charges and any workspace-plan
+charges. Confirm the intended Render workspace and this recurring compute cost
+before creating either service. No paid resources have been created.
 
 The Blueprint has passed Render's current JSON Schema locally. Native Render
 validation, private-repository access, a Docker build and hosted startup still
