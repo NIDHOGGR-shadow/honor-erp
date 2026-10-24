@@ -12,6 +12,7 @@ if context.is_offline_mode():
         url=url,
         target_metadata=Base.metadata,
         literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
         version_table_schema="honor",
         include_schemas=True,
     )
