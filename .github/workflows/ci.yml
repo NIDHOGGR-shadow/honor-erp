@@ -17,6 +17,8 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: node scripts/prepare-cloudflare.mjs
+      - run: npm run build:workers
+      - run: npx wrangler deploy --config wrangler.workers.jsonc --dry-run
       - run: npm run build:storefront
         env:
           NEXT_TELEMETRY_DISABLED: "1"
