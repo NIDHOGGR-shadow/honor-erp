@@ -48,6 +48,7 @@ import { Badge, Brand, Empty, Field, Modal } from "./ui";
 import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
 import PasswordSetup from "./PasswordSetup";
+import PasswordInput from "./PasswordInput";
 import {
   blankWorkspace as blank,
   canOpenWorkspacePage,
@@ -1409,7 +1410,7 @@ export default function Workspace({
                   return result;
                 }, "Email change requested. Check your current and new inboxes.")}>
                   <Field label="New email address"><input required type="email" name="email" autoComplete="email" maxLength={254} className="online-input" /></Field>
-                  <Field label="Current password"><input required type="password" name="current_password" autoComplete="current-password" maxLength={256} className="online-input" /></Field>
+                  <Field label="Current password"><PasswordInput required name="current_password" autoComplete="current-password" maxLength={256} className="online-input" /></Field>
                   <button disabled={busy} className="honor-button">Request email change</button>
                 </form>
               </section>
@@ -1427,20 +1428,18 @@ export default function Workspace({
                   }
                 >
                   <Field label="Current password">
-                    <input
+                    <PasswordInput
                       required
-                      type="password"
                       name="current_password"
                       autoComplete="current-password"
                       className="online-input"
                     />
                   </Field>
                   <Field label="New password · at least 12 characters">
-                    <input
+                    <PasswordInput
                       required
                       minLength={12}
                       maxLength={256}
-                      type="password"
                       name="new_password"
                       autoComplete="new-password"
                       className="online-input"
@@ -1474,9 +1473,8 @@ export default function Workspace({
                   }
                 >
                   <Field label="Your current password">
-                    <input
+                    <PasswordInput
                       required
-                      type="password"
                       name="password"
                       autoComplete="current-password"
                       className="online-input"
@@ -2098,7 +2096,7 @@ function MemberForm({
         <Field label="Account setup"><select name="account_method" value={method} onChange={e => setMethod(e.target.value)} className="online-input"><option value="invitation">Send a private invitation</option><option value="password">Create with a temporary password</option></select></Field>
         {method === "password" && <>
           <Field label="Staff name"><input required name="name" autoComplete="off" maxLength={120} className="online-input" /></Field>
-          <Field label="Temporary password"><input required name="temporary_password" type="password" autoComplete="new-password" minLength={12} maxLength={256} className="online-input" /></Field>
+          <Field label="Temporary password"><PasswordInput required name="temporary_password" autoComplete="new-password" minLength={12} maxLength={256} className="online-input" /></Field>
           <p className="text-xs leading-6 text-zinc-500">Share this temporary password privately. Staff must replace it before accessing records. It cannot be retrieved later.</p>
         </>}
       </>}

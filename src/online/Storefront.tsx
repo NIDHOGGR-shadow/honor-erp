@@ -28,6 +28,7 @@ import {
   type ShopView,
 } from "./customer";
 import { Brand, Field } from "./ui";
+import PasswordInput from "./PasswordInput";
 import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
 
@@ -1349,9 +1350,8 @@ export default function Storefront({
                   />
                 </Field>
                 <Field label="Private order access code">
-                  <input
+                  <PasswordInput
                     className={input}
-                    type="password"
                     value={lookupKey}
                     onChange={(e) => setLookupKey(e.target.value)}
                     required
