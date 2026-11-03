@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Brand, Field } from "./ui";
 import { client } from "./api";
 import { ConnectionNotice } from "./connection";
+import PasswordInput from "./PasswordInput";
 
 export default function PasswordSetup({ api, complete, signOut }: { api: ReturnType<typeof client>; complete: () => Promise<void>; signOut: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
@@ -19,9 +20,9 @@ export default function PasswordSetup({ api, complete, signOut }: { api: ReturnT
       try { await api.send("/auth/password", { current_password: fields.get("current_password"), new_password: fields.get("new_password") }); form.reset(); await complete(); }
       catch (e) { setError((e as Error).message); } finally { setBusy(false); }
     }}>
-      <Field label="Temporary password"><input required type="password" name="current_password" autoComplete="current-password" maxLength={256} className="online-input" /></Field>
-      <Field label="New private password"><input required type="password" name="new_password" autoComplete="new-password" minLength={12} maxLength={256} className="online-input" /></Field>
-      <Field label="Confirm new password"><input required type="password" name="confirm_password" autoComplete="new-password" minLength={12} maxLength={256} className="online-input" /></Field>
+      <Field label="Temporary password"><PasswordInput required name="current_password" autoComplete="current-password" maxLength={256} className="online-input" /></Field>
+      <Field label="New private password"><PasswordInput required name="new_password" autoComplete="new-password" minLength={12} maxLength={256} className="online-input" /></Field>
+      <Field label="Confirm new password"><PasswordInput required name="confirm_password" autoComplete="new-password" minLength={12} maxLength={256} className="online-input" /></Field>
       <p className="text-xs leading-6 text-zinc-500">Use at least 12 characters and a different password from the temporary one.</p>
       <button disabled={busy} className="honor-button w-full">{busy ? "Updating…" : "Save private password"}</button>
     </form>
