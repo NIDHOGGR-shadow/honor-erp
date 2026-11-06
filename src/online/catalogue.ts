@@ -31,8 +31,8 @@ export function catalogueSelection(products: ShopProduct[], filters: ReturnType<
     });
 }
 
-export function variantLabel(product: Pick<Product, "colour" | "memory" | "market" | "sku">) {
-  return [product.colour, product.memory, product.market].filter(Boolean).join(" · ") || product.sku;
+export function variantLabel(product: Pick<Product, "colour" | "memory" | "market" | "sku">, includeSku = true) {
+  return [product.colour, product.memory, product.market].filter(Boolean).join(" · ") || (includeSku ? product.sku : "");
 }
 
 export function productVariants(products: ShopProduct[], selected: ShopProduct) {

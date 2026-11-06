@@ -790,7 +790,7 @@ export default function Storefront({
                     >
                       <ProductImage src={p.image_url} name={p.name} className="store-cart-photo" /><div className="min-w-40 flex-1">
                         <h2 className="font-semibold">{p.name}</h2>
-                        <p className="mt-1 text-xs text-zinc-500">{preview ? variantLabel(p) : p.sku}</p>
+                        <p className="mt-1 text-xs text-zinc-500">{preview ? variantLabel(p, false) : p.sku}</p>
                         <p className="mt-3 text-sm">
                           {money(p.price_minor, currency)} each
                         </p>
