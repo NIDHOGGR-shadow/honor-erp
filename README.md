@@ -61,7 +61,7 @@ Backend integration tests require an isolated PostgreSQL database named `honor_t
 
 ## Deployment and review
 
-- [Vercel and Cloudflare deployment](docs/DEPLOYMENT.md)
+- [Vercel and Render deployment](docs/DEPLOYMENT.md)
 - [Customer frontend integration](docs/GEMINI_INTEGRATION.md)
 - [Setup, production configuration and operational checks](docs/RUNBOOK.md)
 - [Implemented API and remaining extensions](docs/API_CONTRACTS.md)
@@ -69,7 +69,7 @@ Backend integration tests require an isolated PostgreSQL database named `honor_t
 - [Stack decisions and build sequence](docs/STACK_PLAN.md)
 - [Inventory goal and wider implementation blueprint](docs/IMPLEMENTATION_PLAN.md)
 
-The Next.js customer storefront and staff entry target the existing Vercel project. The Docker API targets Render; its hosted connection remains pending. Supabase hosts PostgreSQL and managed identity. Run migrations separately with an owner connection and use a restricted database role for the application. Cloudflare deployment files remain for the earlier experiment; they are not proof of a running backend.
+The Next.js customer storefront and staff entry target the existing Vercel project. The Docker API targets Render; its hosted connection remains pending. Supabase hosts PostgreSQL and managed identity. Run migrations separately with an owner connection and use a restricted database role for the application. Cloudflare files are historical; the active hosting targets are Render and Vercel.
 
 ## Product activation status
 

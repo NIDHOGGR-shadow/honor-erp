@@ -407,4 +407,20 @@ ALTER TABLE honor.identities ADD COLUMN must_change_password BOOLEAN DEFAULT fal
 
 UPDATE honor.alembic_version SET version_num='0005' WHERE honor.alembic_version.version_num = '0004';
 
+-- Running upgrade 0005 -> 0006
+
+ALTER TABLE honor.companies ADD COLUMN storefront_content JSON DEFAULT '{}' NOT NULL;
+
+ALTER TABLE honor.products ADD COLUMN model_name VARCHAR(160) DEFAULT '' NOT NULL;
+
+ALTER TABLE honor.products ADD COLUMN colour VARCHAR(80) DEFAULT '' NOT NULL;
+
+ALTER TABLE honor.products ADD COLUMN memory VARCHAR(80) DEFAULT '' NOT NULL;
+
+ALTER TABLE honor.products ADD COLUMN market VARCHAR(80) DEFAULT '' NOT NULL;
+
+ALTER TABLE honor.products ADD COLUMN source_url TEXT DEFAULT '' NOT NULL;
+
+UPDATE honor.alembic_version SET version_num='0006' WHERE honor.alembic_version.version_num = '0005';
+
 COMMIT;

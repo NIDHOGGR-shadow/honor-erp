@@ -42,7 +42,7 @@ def test_sql_installs_empty_tables_and_refuses_existing_schema(database_factory)
             while cursor.nextset():
                 pass
             cursor.execute(f'SELECT version_num FROM "{schema}".alembic_version')
-            assert cursor.fetchone()[0] == "0005"
+            assert cursor.fetchone()[0] == "0006"
             for role in ("anon", "authenticated", "service_role"):
                 cursor.execute("SELECT has_schema_privilege(%s,%s,'USAGE')", (role, schema))
                 assert cursor.fetchone()[0] is False

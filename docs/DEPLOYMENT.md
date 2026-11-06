@@ -1,52 +1,36 @@
-# Honor deployment: private source, connected frontends
+# Honor deployment: Vercel and Render
 
-The source repository is `NIDHOGGR-shadow/honor-erp`. GitHub metadata confirmed it is private on 23 October 2026. Keep it private when authorising hosting providers; grant access to this repository rather than making it public.
+The private source repository is NIDHOGGR-shadow/honor-erp. The active hosting arrangement is Vercel for the frontend, Render for the FastAPI backend, and Supabase for PostgreSQL and managed identity.
 
-## Service responsibilities
+## Responsibilities
 
-| Service | Responsibility | Source/build |
-| --- | --- | --- |
-| Vercel | Next.js customer shop, account screens, `/workspace` staff access and same-origin API proxy | Root directory `apps/storefront`; Next.js; `npm run build` |
-| Cloudflare Pages | Connected staff workspace and same-origin API proxy | Repository root; `npm ci && npm run build:cloudflare`; output `dist` |
-| PostgreSQL-capable backend host | FastAPI inventory transactions, managed identity sessions, payment endpoints | Existing root Dockerfile; database migration before traffic |
-| Worker process on backend host | Payment-event inbox, email jobs, expiry and reconciliation | Existing backend worker/cleanup commands in RUNBOOK.md |
-| Supabase | Isolated Honor PostgreSQL database and verified identity | Project selection/provisioning still required |
+| Service | Responsibility |
+| --- | --- |
+| Vercel | Next.js customer shop, customer accounts, /workspace staff/admin application and same-origin API proxy. |
+| Render | Existing root Dockerfile, FastAPI inventory/order/payment operations and /api/health. |
+| Supabase | Existing private Honor schema and managed identity. |
+| Configured job runner | Email jobs, payment-event processing, reservation expiry and reconciliation. The free API service does not by itself establish an operational background worker. |
 
-Cloudflare does not run this FastAPI/PostgreSQL worker stack. The frontend proxies pass requests to the same authoritative backend. Each frontend receives its own host-only HttpOnly application cookie. A sign-in on the customer host does not automatically sign in the staff host. Customer registration creates no company membership or staff permission.
+Older Cloudflare files are historical and are not active deployment instructions or required release jobs.
 
-## Vercel
+## Vercel configuration
 
-Import the private repository and select `apps/storefront` as Root Directory. Keep “Include source files outside Root Directory” enabled, because the storefront shares `src/online` with the dashboard. npm uses the committed root workspace lockfile. Framework: Next.js. The application configuration is `apps/storefront/vercel.json`.
+Use apps/storefront as Root Directory and retain access to shared source outside that directory. npm uses the committed root workspace lockfile. Build with npm run build:storefront from the repository root, or the workspace's build command in the hosting project.
 
-Configure server-only variables:
+Configure server-only HONOR_API_ORIGIN to the verified Render API origin, without an /api suffix. Configure HONOR_STORE_SLUG to the actual business slug. Leave HONOR_WORKSPACE_URL unset to use the built-in /workspace route on Vercel. Database, identity-management and payment secrets stay outside browser bundles.
 
-- `HONOR_API_ORIGIN`: the real HTTPS API origin, without an `/api` suffix.
-- `HONOR_STORE_SLUG`: the company slug created through the verified administrator's setup workflow.
-- `HONOR_WORKSPACE_URL`: optional deployed Cloudflare workspace URL. Omit it to use the built-in `/workspace` staff route on Vercel.
+The existing Render service is named honor-api and advertises https://honor-api.onrender.com. That recorded URL is not proof of a healthy backend; check /api/health and a complete authenticated workflow.
 
-The UI remains explicitly unavailable if the API origin or slug is absent. Do not invent a company, products or accounts to make it appear connected. Catalogue reads are uncached and shared with stock reservations. API rewrites preserve cookie sessions on the storefront origin.
+## Render configuration
 
-The shop's **Staff sign-in** link opens `/workspace` by default. This route mounts the shared staff application, checks the existing session, and opens the inventory overview after successful staff sign-in. Company memberships and location permissions come from the API; customer sign-in grants no staff access. Invitation and password-recovery query parameters are preserved. The staff page needs `HONOR_API_ORIGIN` but does not require a public shop slug. Until that origin is configured, it shows an unavailable message and disables authentication submissions rather than attempting requests against missing API routes.
+Use the existing honor-api service and root Dockerfile. The repository render.yaml specifies a free Docker web service and /api/health. Preserve its existing secrets and private repository access.
 
-## Cloudflare Pages
+The backend needs the restricted Honor database connection, session secret, managed-identity settings and exact allowed frontend origins. HONOR_APP_ORIGIN and HONOR_SHOP_ORIGIN refer to the appropriate Vercel origin. Merchant payments remain disabled until configured and accepted against the operating business.
 
-Use the root `wrangler.toml`. Build with `npm run build:cloudflare`, which copies the reviewed advanced-mode `_worker.js` into `dist`. The build has no public preview mode. Both deployment targets use authenticated API-backed staff access.
+Apply uv run alembic upgrade head from services/backend using the migration owner connection before shipping this version. Migration 0006 adds product variant metadata and storefront content. The generated deploy/honor-bootstrap.sql is only for an empty database; it must not be used to overwrite an existing business.
 
-Set `HONOR_API_ORIGIN` in the Cloudflare project's runtime variables to the real HTTPS API origin. Deploy `dist` through the private Git integration or authenticated `wrangler pages deploy dist --project-name honor-workspace`. The API proxy returns 503 when unconfigured; it never returns a false empty catalogue or successful sign-in. It disables API caching and refuses insecure origins. SPA navigation falls back to the app only outside `/api/`.
+## Verification
 
-No Supabase service-role credential, database password or payment secret belongs in either frontend build. Cloudflare dashboard sign-in is required before a project can be provisioned in the user's account. No direct Cloudflare account connection was available during implementation.
+Run npm run check, npm run build:storefront, backend Ruff, the offline bootstrap export check, and backend tests against isolated PostgreSQL. GitHub CI includes psycopg and pg8000. Keep live inventory and merchant transactions separate from disposable test fixtures.
 
-## Backend activation order
-
-1. Select/create the isolated Honor Supabase project. Novaxis currently has both free project slots occupied. Do not pause/reuse another project or incur an upgrade without the user's selection.
-2. Follow RUNBOOK.md for restricted database access, Supabase Auth, custom SMTP, secrets and backend/worker deployment.
-3. Run `alembic upgrade head`, including migrations `0002` and `0003`, before deploying the customer account, receipt and device-handover APIs. Existing guest orders remain unassigned; matching email never grants ownership. See [purchase flow](PURCHASE_FLOW.md) for bank transfers, exact device scans and private PDF receipts.
-4. Configure exact production frontend origins in `HONOR_ALLOWED_ORIGINS`, set `HONOR_APP_ORIGIN` to the staff host and `HONOR_SHOP_ORIGIN` to the customer host. Provider callbacks and email recovery must use verified HTTPS origins.
-5. Create the verified administrator and an empty company through setup. Add no products or other seed records. Confirm staff invitations/MFA/password recovery and isolated customer accounts.
-6. Configure the selected merchant's provider test environment and verify reservation, retry, payment webhook, expiry, cancellation, late-payment exception and physical collection. Enable real payments only after this acceptance check.
-
-Google OAuth remains a pending provider integration and is not represented as working. Email sign-in/signup/recovery and private account history are wired to the implemented API, but require the real Supabase/backend deployment before live use.
-
-## Verification and release
-
-Run `npm run check`, `npm run build:storefront`, `npm run build:cloudflare`, Ruff and backend tests against isolated PostgreSQL. CI runs the concurrent stock test against native PostgreSQL 17. Confirm the exact branch/commit and target before deployment. Preserve the private repository and existing preview audience. Review rendered customer routes, sign-in, keyboard navigation and narrow-screen behaviour before business acceptance.
+Before describing the hosted app as functional, verify sign-in, assigned staff permissions, product setup, checked stock receipt, publication, customer cart/checkout, verified payment status and collection/receipt. No account, stock or payment success should be fabricated to mask a missing service connection.

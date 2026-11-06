@@ -91,6 +91,7 @@ export function customerApi(base: string, slug: string) {
       email: string,
       token: string,
       lines: { product_id: string; quantity: number }[],
+      expectedTotal?: number,
     ) =>
       api.command<
         Pick<
@@ -107,6 +108,7 @@ export function customerApi(base: string, slug: string) {
         email,
         client_token: token,
         lines,
+        ...(expectedTotal !== undefined ? { expected_total_minor: expectedTotal } : {}),
       }),
     pay: (id: string, key = "") =>
       api.send<{ url?: string; simulation?: boolean }>(

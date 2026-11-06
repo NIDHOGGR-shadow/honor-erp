@@ -36,6 +36,7 @@ class Company(Base):
     slug: Mapped[str] = mapped_column(String(80), unique=True)
     currency: Mapped[str] = mapped_column(String(3))
     timezone: Mapped[str] = mapped_column(String(80), default="UTC")
+    storefront_content: Mapped[dict] = mapped_column(JSON, default=dict, server_default="{}")
 
 
 class Identity(Base):
@@ -103,6 +104,11 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(160))
     description: Mapped[str] = mapped_column(Text, default="")
     category: Mapped[str] = mapped_column(String(80), default="General")
+    model_name: Mapped[str] = mapped_column(String(160), default="", server_default="")
+    colour: Mapped[str] = mapped_column(String(80), default="", server_default="")
+    memory: Mapped[str] = mapped_column(String(80), default="", server_default="")
+    market: Mapped[str] = mapped_column(String(80), default="", server_default="")
+    source_url: Mapped[str] = mapped_column(Text, default="", server_default="")
     tracking: Mapped[str] = mapped_column(String(16), default="QUANTITY")
     price_minor: Mapped[int] = mapped_column(Integer)
     cost_minor: Mapped[int] = mapped_column(Integer, default=0)
