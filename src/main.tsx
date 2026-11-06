@@ -2,6 +2,7 @@ import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 const Workspace = lazy(() => import("./online/Workspace"));
 const Storefront = lazy(() => import("./online/Storefront"));
+const StorefrontPreview = lazy(() => import("./online/StorefrontPreview"));
 import "./index.css";
 
 const path = window.location.pathname;
@@ -12,7 +13,9 @@ if (retired) window.location.replace(path === "/demo" ? "/workspace" : "/");
 const shopSlug = path.startsWith("/shop/")
   ? decodeURIComponent(path.split("/").filter(Boolean)[1] || "")
   : import.meta.env.VITE_STORE_SLUG || "honor";
-const screen = retired ? null : path.startsWith("/workspace") ? (
+const screen = retired ? null : path === "/preview" ? (
+  <StorefrontPreview initialSearch={window.location.search} />
+) : path.startsWith("/workspace") ? (
   <Workspace apiBase={apiBase} shopUrl="/" />
 ) : (
   <Storefront slug={shopSlug} apiBase={apiBase} />

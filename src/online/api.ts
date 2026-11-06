@@ -216,6 +216,7 @@ export type Order = {
   serials?: { product_id: string; serial: string; status: string }[];
 };
 export type Catalogue = {
+  recommendations?: { popular_product_ids: string[]; trending_product_ids: string[]; budget_product_ids: string[]; window_days: number };
   company: { name: string; slug: string; currency: string; storefront_content?: Company["storefront_content"] };
   products: (Pick<
     Product,

@@ -27,10 +27,11 @@ import {
   type Customer,
   type ShopView,
 } from "./customer";
-import { Brand, Field } from "./ui";
+import { Field } from "./ui";
 import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
-import { productSearchText, productVariants, variantLabel } from "./catalogue";
+import { catalogueSelection, productVariants, readShopFilters, variantLabel } from "./catalogue";
+import { CategoryShortcuts, CollectionBanner, ProductImage, ReferenceCollection, StoreFooter, StoreHeader, StoreHero, StoreProductCard } from "./StorefrontDesign";
 
 type Props = {
   slug: string;
@@ -40,6 +41,7 @@ type Props = {
   initialSearch?: string;
   configured?: boolean;
   accountConfigured?: boolean;
+  preview?: boolean;
 };
 const message = (error: unknown) =>
   error instanceof Error
@@ -47,8 +49,7 @@ const message = (error: unknown) =>
     : "We could not complete this request. Please try again.";
 const input = "online-input";
 
-// Customer presentation adapted from the supplied Gemini storefront. Honor contracts and
-// inventory/payment rules remain shared with the staff application.
+// Reference-based shopping presentation. Inventory and payment state stay API-owned.
 export default function Storefront({
   slug,
   apiBase = "/api/v1",
@@ -57,6 +58,7 @@ export default function Storefront({
   initialSearch = "",
   configured = true,
   accountConfigured = configured,
+  preview = false,
 }: Props) {
   const api = useMemo(() => customerApi(apiBase, slug), [apiBase, slug]);
   const [route, setRoute] = useState(() => readRoute(initialSearch));
@@ -78,12 +80,13 @@ export default function Storefront({
   const [notice, setNotice] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const pendingAuth = useAuthSubmission(apiBase, accountConfigured, route.view);
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("All");
-  const [inStock, setInStock] = useState(false);
-  const [sort, setSort] = useState("name");
+  const [query, setQuery] = useState(() => readShopFilters(initialSearch).query);
+  const [category, setCategory] = useState(() => readShopFilters(initialSearch).category);
+  const [inStock, setInStock] = useState(() => readShopFilters(initialSearch).inStock);
+  const [sort, setSort] = useState(() => readShopFilters(initialSearch).sort);
+  const [shelf, setShelf] = useState(() => readShopFilters(initialSearch).shelf);
   const products = catalogue?.products || [];
-  const currency = catalogue?.company.currency || "USD";
+  const currency = catalogue?.company.currency || "NGN";
   const cartSlot = "honor:cart:" + slug;
   const tokenSlot = "honor:checkout-key:" + slug;
   const currentOrderSlot = "honor:current-order:" + slug;
@@ -98,7 +101,7 @@ export default function Storefront({
   const selected = products.find((p) => p.id === route.product);
 
   const loadCatalogue = useCallback(async () => {
-    if (!configured) return;
+    if (!configured || preview) return;
     setLoading(true);
     setCatalogueError("");
     try {
@@ -112,7 +115,7 @@ export default function Storefront({
     } finally {
       setLoading(false);
     }
-  }, [api, configured]);
+  }, [api, configured, preview]);
   const loadProfile = useCallback(async () => {
     if (!accountConfigured) return;
     const generation = ++profileGeneration.current;
@@ -153,6 +156,7 @@ export default function Storefront({
   );
   useEffect(() => {
     setRoute(readRoute(window.location.search));
+    restoreFilters(window.location.search);
     loadCatalogue();
     loadProfile();
     try {
@@ -181,6 +185,7 @@ export default function Storefront({
   useEffect(() => {
     const sync = () => {
       setRoute(readRoute(window.location.search));
+      restoreFilters(window.location.search);
       setError("");
       setNotice("");
     };
@@ -227,12 +232,37 @@ export default function Storefront({
     );
     return () => clearInterval(timer);
   }, [order?.id, order?.status, orderKey, loadOrder]);
+  useEffect(() => {
+    if (!configured || preview || route.view !== "shop") return;
+    const timer = setInterval(() => { if (document.visibilityState === "visible") void loadCatalogue(); }, 60000);
+    return () => clearInterval(timer);
+  }, [configured, preview, route.view, loadCatalogue]);
 
   function href(view: ShopView, product = "") {
     const params = new URLSearchParams();
     if (view !== "shop") params.set("view", view);
     if (product) params.set("product", product);
+    if (query) params.set("q", query);
+    if (category !== "All") params.set("category", category);
+    if (sort !== "featured") params.set("sort", sort);
+    if (shelf !== "featured") params.set("shelf", shelf);
+    if (inStock) params.set("stock", "1");
     return "?" + params.toString();
+  }
+  function restoreFilters(search: string) {
+    const filters = readShopFilters(search);
+    setQuery(filters.query); setCategory(filters.category); setSort(filters.sort); setShelf(filters.shelf); setInStock(filters.inStock);
+  }
+  function browse(nextCategory = category, nextQuery = query, nextSort = sort, nextStock = inStock, nextShelf = "featured") {
+    const params = new URLSearchParams();
+    if (nextCategory !== "All") params.set("category", nextCategory);
+    if (nextQuery) params.set("q", nextQuery);
+    if (nextSort !== "featured") params.set("sort", nextSort);
+    if (nextStock) params.set("stock", "1");
+    if (nextShelf !== "featured") params.set("shelf", nextShelf);
+    window.history.pushState({}, "", "?" + params.toString() + "#catalogue");
+    restoreFilters(params.toString()); setRoute({ view: "shop", product: "" }); setError(""); setNotice("");
+    requestAnimationFrame(() => document.getElementById("catalogue")?.scrollIntoView({ block: "start" }));
   }
   function navigate(view: ShopView, product = "") {
     window.history.pushState({}, "", href(view, product));
@@ -359,6 +389,7 @@ export default function Storefront({
   }
   function auth(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (preview) { setNotice("This sample catalogue does not create accounts or accept sign-ins. Return to the main store to use your account."); return; }
     const form = e.currentTarget;
     const data = new FormData(form);
     void pendingAuth.submit(() => run(async () => {
@@ -383,20 +414,8 @@ export default function Storefront({
       form.reset();
     }));
   }
-  const shown = products
-    .filter(
-      (p) =>
-        (category === "All" || p.category === category) &&
-        (!inStock || p.available > 0) &&
-        productSearchText(p).includes(query.toLowerCase()),
-    )
-    .sort((a, b) =>
-      sort === "price-asc"
-        ? a.price_minor - b.price_minor
-        : sort === "price-desc"
-          ? b.price_minor - a.price_minor
-          : a.name.localeCompare(b.name),
-    );
+  const shown = catalogueSelection(products, { query, category, sort, shelf, inStock }, catalogue?.recommendations);
+  const featured = catalogueSelection(products, { query: "", category: "All", sort: "featured", shelf: "featured", inStock: true }, catalogue?.recommendations);
   const back = (
     <button className="honor-text-button mb-5" onClick={() => navigate("shop")}>
       <ArrowLeft size={16} /> Back to shop
@@ -608,62 +627,19 @@ export default function Storefront({
   }
 
   return (
-    <div className="online-app flex min-h-screen flex-col bg-[#fafafa] text-zinc-900">
+    <div className="online-app storefront flex min-h-screen flex-col">
       <ConnectionNotice />
+      {catalogue?.simulation && <div className="store-preview-label" role="status">Demo catalogue · Sample prices and stock · No real purchases</div>}
       <a
         href="#shop-content"
         className="sr-only focus:not-sr-only focus:block focus:p-4"
       >
         Skip to content
       </a>
-      <div className="bg-zinc-900 px-4 py-2.5 text-center text-xs text-zinc-200">
-        {catalogueMissing ? "Honor · Inventory, in order" : "Collection from the store · Stock is held after a successful reservation"}
-      </div>
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto] items-center gap-x-6 gap-y-4 px-5 py-5 sm:px-8 lg:grid-cols-[auto_1fr_auto] lg:gap-x-8">
-          <a
-            href={href("shop")}
-            onClick={(e) => link(e, "shop")}
-            aria-label="Honor shop"
-          >
-            <Brand small />
-          </a>
-          <nav
-            aria-label="Customer navigation"
-            className="order-3 col-span-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-zinc-100 pt-3 sm:gap-x-6 lg:order-none lg:col-span-1 lg:border-0 lg:p-0"
-          >
-            {nav("shop", "Shop")}
-            {nav("locations", "Collection")}
-            {nav("account", "Your orders")}
-            <a
-              href={href("cart")}
-              onClick={(e) => link(e, "cart")}
-              className="online-secondary ml-auto"
-              aria-label={`View cart, ${count} items`}
-            >
-              <ShoppingBag size={18} />
-              <span>Cart</span>
-              <span className="tabular-nums">{count}</span>
-            </a>
-          </nav>
-          {!customer && (
-            <div className="flex items-center justify-end gap-3 sm:gap-4">
-              {nav("login", "Sign in")}
-              <a
-                href={href("signup")}
-                onClick={(e) => link(e, "signup")}
-                className="honor-button whitespace-nowrap"
-                aria-current={activeView === "signup" ? "page" : undefined}
-              >
-                Sign up
-              </a>
-            </div>
-          )}
-        </div>
-      </header>
+      <StoreHeader products={products} view={activeView} category={category} query={query} count={count} signedIn={Boolean(customer)} href={href} onNavigate={navigate} onBrowse={browse} onQuery={setQuery} />
       <main
         id="shop-content"
-        className="mx-auto w-full max-w-7xl flex-1 px-5 py-10 sm:px-8 sm:py-14"
+        className={`store-main ${activeView === "shop" ? "" : "store-page"}`}
       >
         {error && (
           <div
@@ -683,170 +659,24 @@ export default function Storefront({
         )}
         {activeView === "shop" && (
           <>
-            {catalogueMissing ? (
-              <section className="honor-panel p-6 sm:p-10" aria-labelledby="shop-status-title">
-                <p className="honor-eyebrow">Honor</p>
-                <h1 id="shop-status-title" className="mt-4 text-2xl font-semibold sm:text-3xl">The shop is temporarily unavailable</h1>
-                <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">We cannot load current products or stock right now. Please try again later.</p>
-                <a href={staffUrl} className="honor-text-button mt-5">Staff sign-in <ArrowRight size={16} /></a>
+            {!catalogueMissing && <StoreHero products={featured} currency={currency} heading={catalogue?.company.storefront_content?.heading} introduction={catalogue?.company.storefront_content?.introduction} href={href} onNavigate={navigate} />}
+            <div className="store-page">
+              {catalogueMissing ? <section className="honor-panel p-6 sm:p-10" aria-labelledby="shop-status-title"><p className="honor-eyebrow">HONOR</p><h1 id="shop-status-title" className="mt-4 text-2xl font-semibold sm:text-3xl">The shop is temporarily unavailable</h1><p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">We cannot load current products or stock right now. Please try again later.</p><a href={staffUrl} className="honor-text-button mt-5">Staff sign-in <ArrowRight size={16} /></a></section> : <>
+              <CategoryShortcuts products={products} onBrowse={browse} onLocations={() => navigate("locations")} />
+              <section id="catalogue" className="store-catalogue" aria-labelledby="catalogue-title">
+                <div className="store-section-heading"><div><p className="store-kicker">HONOR Nigeria</p><h2 id="catalogue-title">{catalogue?.company.storefront_content?.heading || "Featured products"}</h2></div>{products.length > 0 && <button className="honor-text-button" onClick={() => browse("All", "", "featured", false)}>View all products <ArrowRight size={16} /></button>}</div>
+                {catalogue?.company.storefront_content?.introduction && <p className="store-reference-explainer">{catalogue.company.storefront_content.introduction}</p>}
+                {catalogueError && <div role="alert" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm"><p>{catalogueError}</p><button className="honor-text-button mt-2" onClick={loadCatalogue}><RefreshCw size={15} /> Try again</button></div>}
+                {products.length > 0 && <>
+                  <div className="store-filter-tabs" aria-label="Product collections">{[["featured", "All products"], ...(catalogue?.recommendations?.trending_product_ids.length ? [["trending", "Selling fast"]] : []), ...(catalogue?.recommendations?.popular_product_ids.length ? [["popular", "Popular this week"]] : []), ["budget", "Budget picks"]].map(([value, label]) => <button key={value} aria-pressed={shelf === value} onClick={() => browse(category, query, "featured", inStock, value)}>{label}</button>)}</div>
+                  <div className="store-filters"><div className="store-filter-search"><Field label="Search products"><input className={input} type="search" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") browse(category, query, sort, inStock, shelf); }} placeholder="Name, model, colour or memory" /></Field></div><Field label="Category"><select className={input} value={category} onChange={e => browse(e.target.value, query, sort, inStock, shelf)}>{["All", ...new Set(products.map(p => p.category))].map(c => <option key={c}>{c}</option>)}</select></Field><Field label="Sort by"><select className={input} value={sort} onChange={e => browse(category, query, e.target.value, inStock, shelf)}><option value="featured">Recommended order</option><option value="name">Name: A–Z</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option></select></Field><label className="store-stock-filter"><input type="checkbox" checked={inStock} onChange={e => browse(category, query, sort, e.target.checked, shelf)} /> In stock only</label></div>
+                  <p className="store-result-count" role="status">{shown.length} {shown.length === 1 ? "product" : "products"}{shelf === "trending" ? " · Growing demand over the last 7 days" : shelf === "popular" ? " · Based on verified purchases in the last 7 days" : shelf === "budget" ? " · Lower-priced available choices in each category" : ""}</p>
+                </>}
+                {loading && !catalogue ? <p role="status" className="py-16 text-center text-zinc-500">Loading the collection…</p> : catalogue && !products.length ? <>{empty("No products available yet", "The store has not published any products. Check back soon.")}<ReferenceCollection /></> : catalogue && !shown.length ? <>{empty("No matching products", "Try another search or clear your filters.")}<button className="honor-text-button mt-4" onClick={() => browse("All", "", "featured", false)}>Clear filters</button></> : <div className="store-product-grid">{shown.map(p => <StoreProductCard key={p.id} product={p} currency={currency} trending={catalogue?.recommendations?.trending_product_ids.includes(p.id)} popular={catalogue?.recommendations?.popular_product_ids.includes(p.id)} href={href} onNavigate={navigate} />)}</div>}
               </section>
-            ) : <div className="mb-8">
-              <p className="honor-eyebrow">
-                {catalogue?.company.name || "Honor"}
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-                {catalogue?.company.storefront_content?.heading || "Shop by category"}
-              </h1>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">
-                {catalogue?.company.storefront_content?.introduction || ""}
-              </p>
-            </div>}
-            {catalogueError && (
-              <div
-                role="alert"
-                className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm"
-              >
-                <p>{catalogueError}</p>
-                {configured && (
-                  <button
-                    className="honor-text-button mt-2"
-                    onClick={loadCatalogue}
-                  >
-                    <RefreshCw size={15} /> Try again
-                  </button>
-                )}
-              </div>
-            )}
-            {((catalogue && products.length > 0) || loading) && (
-              <div className="mb-8 flex flex-wrap items-end gap-4 rounded-xl border border-zinc-200 bg-white p-4">
-                <div className="min-w-48 flex-1">
-                  <Field label="Search products">
-                    <div className="relative">
-                      <Search
-                        size={17}
-                        className="absolute left-3 top-3.5 text-zinc-400"
-                      />
-                      <input
-                        className={input + " pl-10"}
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Name, SKU or category"
-                      />
-                    </div>
-                  </Field>
-                </div>
-                <Field label="Category">
-                  <select
-                    className={input}
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                  >
-                    {["All", ...new Set(products.map((p) => p.category))].map(
-                      (c) => (
-                        <option key={c}>{c}</option>
-                      ),
-                    )}
-                  </select>
-                </Field>
-                <Field label="Sort by">
-                  <select
-                    className={input}
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value)}
-                  >
-                    <option value="name">Name: A–Z</option>
-                    <option value="price-asc">Price: low to high</option>
-                    <option value="price-desc">Price: high to low</option>
-                  </select>
-                </Field>
-                <label className="flex min-h-11 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={inStock}
-                    onChange={(e) => setInStock(e.target.checked)}
-                  />{" "}
-                  In stock only
-                </label>
-              </div>
-            )}
-            {loading && !catalogue ? (
-              <p role="status" className="py-16 text-center text-zinc-500">
-                Loading the collection…
-              </p>
-            ) : catalogue && products.length === 0 ? (
-              empty(
-                "No products available yet",
-                "The store has not published any products. Check back soon.",
-              )
-            ) : catalogue && !shown.length ? (
-              <>
-                {empty(
-                  "No matching products",
-                  "Try another search or clear your filters.",
-                )}
-                <button
-                  className="honor-text-button mt-4"
-                  onClick={() => {
-                    setQuery("");
-                    setCategory("All");
-                    setInStock(false);
-                  }}
-                >
-                  Clear filters
-                </button>
-              </>
-            ) : (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {shown.map((p) => (
-                  <article
-                    key={p.id}
-                    className="overflow-hidden rounded-xl border border-zinc-200 bg-white"
-                  >
-                    <a
-                      href={href("product", p.id)}
-                      onClick={(e) => link(e, "product", p.id)}
-                      className="block"
-                    >
-                      <div className="flex aspect-[4/3] items-center justify-center bg-zinc-100">
-                        {p.image_url ? (
-                          <img
-                            src={p.image_url}
-                            alt={p.name}
-                            loading="lazy"
-                            className="h-full w-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <Package size={40} className="text-zinc-300" />
-                        )}
-                      </div>
-                      <div className="p-5">
-                        <p className="text-xs text-zinc-500">
-                          {p.category} · {p.sku}
-                        </p>
-                        <h2 className="mt-2 text-base font-semibold leading-6">
-                          {p.name}
-                        </h2>
-                        {(p.colour || p.memory || p.market) && <p className="mt-2 text-xs text-zinc-500">{variantLabel(p)}</p>}
-                        <p className="mt-3 text-sm text-zinc-600 line-clamp-2">
-                          {p.description}
-                        </p>
-                        <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
-                          <strong>{money(p.price_minor, currency)}</strong>
-                          <span
-                            className={`text-xs ${p.available > 0 ? "text-emerald-800" : "text-zinc-500"}`}
-                          >
-                            {p.available > 0
-                              ? "Available for collection"
-                              : "Out of stock"}
-                          </span>
-                        </div>
-                      </div>
-                    </a>
-                  </article>
-                ))}
-              </div>
-            )}
+              </>}
+              <CollectionBanner href={href} onNavigate={navigate} />
+            </div>
           </>
         )}
         {activeView === "product" && (
@@ -862,18 +692,7 @@ export default function Storefront({
               )
             ) : (
               <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-14">
-                <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-zinc-100">
-                  {selected.image_url ? (
-                    <img
-                      src={selected.image_url}
-                      alt={selected.name}
-                      className="h-full w-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <Package size={70} className="text-zinc-300" />
-                  )}
-                </div>
+                <div className="store-product-image"><ProductImage src={selected.image_url} name={selected.name} eager /></div>
                 <section className="honor-panel p-6 sm:p-8">
                   <p className="honor-eyebrow">{selected.category}</p>
                   <h1 className="mt-3 text-3xl font-semibold leading-tight">
@@ -932,6 +751,7 @@ export default function Storefront({
         {(activeView === "cart" || activeView === "checkout") && (
           <>
             {back}
+            <nav aria-label="Checkout progress" className="store-steps"><span aria-current={activeView === "cart" ? "step" : undefined}>1. Your cart</span><ArrowRight size={14} /><span aria-current={activeView === "checkout" ? "step" : undefined}>2. Review</span><ArrowRight size={14} /><span>3. Secure payment</span></nav>
             <h1 className="mb-8 text-3xl font-semibold">
               {activeView === "cart" ? "Your cart" : "Review & checkout"}
             </h1>
@@ -970,7 +790,7 @@ export default function Storefront({
                       key={p.id}
                       className="honor-panel flex flex-wrap items-center gap-5 p-5"
                     >
-                      <div className="min-w-40 flex-1">
+                      <ProductImage src={p.image_url} name={p.name} className="store-cart-photo" /><div className="min-w-40 flex-1">
                         <h2 className="font-semibold">{p.name}</h2>
                         <p className="mt-1 text-xs text-zinc-500">{p.sku}</p>
                         <p className="mt-3 text-sm">
@@ -1433,17 +1253,7 @@ export default function Storefront({
           </>
         )}
       </main>
-      <footer className="mt-12 border-t border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-5 px-5 py-8 text-sm text-zinc-500 sm:px-8">
-          <p>{catalogue?.company.name && catalogue.company.name !== "Honor" ? `${catalogue.company.name} · Powered by Honor` : "Honor · Inventory, in order"}</p>
-          <a
-            className="underline underline-offset-4 hover:text-zinc-900"
-            href={staffUrl}
-          >
-            Staff sign-in
-          </a>
-        </div>
-      </footer>
+      <StoreFooter companyName={catalogue?.company.name} staffUrl={staffUrl} href={href} onNavigate={navigate} />
     </div>
   );
 }

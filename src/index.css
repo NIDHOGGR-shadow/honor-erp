@@ -1,4 +1,5 @@
 @import "tailwindcss" source(none);
+@import "./online/storefront.css";
 @source "./online";
 @source "../apps/storefront/app";
 
