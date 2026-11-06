@@ -9,6 +9,7 @@
 - Product and stock records come from the business. Overseas catalogues are references.
 - New IMEI work, warranty/guarantee, repairs and return-policy work are paused. Existing inventory safeguards are preserved.
 - Keep development explanations, source-selection decisions and project status in the conversation and engineering documents, outside customer/staff screens.
+- Send proposed customer-facing wording to Samuel in the conversation before applying further copy changes. Production is a real store; sample-catalogue labels and synthetic prices/stock belong only in the separate review preview. The current copy proposal is awaiting his review.
 
 ## This implementation
 

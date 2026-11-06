@@ -83,8 +83,8 @@
 .store-product-flags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; font-size: 11px; line-height: 1.5; }
 .store-availability { color: #166534; }
 .store-sale-badge { background: #fff; border: 1px solid #ddd; padding: 2px 8px; border-radius: 5px; }
-.store-card-image { align-self: center; display: grid; place-items: center; height: 200px; min-width: 0; }
-.store-card-image img { width: 100%; height: 100%; object-fit: contain; }
+.store-card-image { align-self: center; display: flex; align-items: center; justify-content: center; height: 200px; min-width: 0; overflow: hidden; }
+.store-card-image img { width: 100%; height: 100%; max-height: 100%; min-height: 0; object-fit: contain; display: block; }
 .store-card-bottom { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; }
 .store-card-bottom > strong { font-size: 25px; letter-spacing: -.03em; overflow-wrap: anywhere; }
 .store-card-bottom .honor-button { font-size: 12px; padding-inline: 18px; flex-shrink: 0; }
