@@ -240,9 +240,10 @@ export type Catalogue = {
   locations?: { id: string; name: string; address: string }[];
 };
 export const money = (minor: number, currency: string) =>
-  new Intl.NumberFormat("en-GB", {
+  new Intl.NumberFormat(currency === "NGN" ? "en-NG" : "en-GB", {
     style: "currency",
     currency,
+    ...(currency === "NGN" ? { currencyDisplay: "narrowSymbol" as const } : {}),
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(minor / 100);

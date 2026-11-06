@@ -1,6 +1,6 @@
 import StorefrontPreview from "../../../../src/online/StorefrontPreview";
 
-export const metadata = { title: "HONOR · Design preview", robots: { index: false, follow: false } };
+export const metadata = { title: "HONOR · Storefront review", robots: { index: false, follow: false } };
 export default async function PreviewPage({ searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {

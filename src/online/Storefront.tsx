@@ -389,7 +389,7 @@ export default function Storefront({
   }
   function auth(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (preview) { setNotice("This sample catalogue does not create accounts or accept sign-ins. Return to the main store to use your account."); return; }
+    if (preview) { setNotice("Sign-in is unavailable on this review page."); return; }
     const form = e.currentTarget;
     const data = new FormData(form);
     void pendingAuth.submit(() => run(async () => {
@@ -629,7 +629,7 @@ export default function Storefront({
   return (
     <div className="online-app storefront flex min-h-screen flex-col">
       <ConnectionNotice />
-      {catalogue?.simulation && <div className="store-preview-label" role="status">Demo catalogue · Sample prices and stock · No real purchases</div>}
+      {preview ? <aside className="store-review-note" aria-label="Storefront review">Prices and availability are illustrative. Purchases are disabled.</aside> : catalogue?.simulation && <div className="store-preview-label" role="status">Test checkout · No real purchases</div>}
       <a
         href="#shop-content"
         className="sr-only focus:not-sr-only focus:block focus:p-4"
@@ -669,10 +669,10 @@ export default function Storefront({
                 {catalogueError && <div role="alert" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm"><p>{catalogueError}</p><button className="honor-text-button mt-2" onClick={loadCatalogue}><RefreshCw size={15} /> Try again</button></div>}
                 {products.length > 0 && <>
                   <div className="store-filter-tabs" aria-label="Product collections">{[["featured", "All products"], ...(catalogue?.recommendations?.trending_product_ids.length ? [["trending", "Selling fast"]] : []), ...(catalogue?.recommendations?.popular_product_ids.length ? [["popular", "Popular this week"]] : []), ["budget", "Budget picks"]].map(([value, label]) => <button key={value} aria-pressed={shelf === value} onClick={() => browse(category, query, "featured", inStock, value)}>{label}</button>)}</div>
-                  <div className="store-filters"><div className="store-filter-search"><Field label="Search products"><input className={input} type="search" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") browse(category, query, sort, inStock, shelf); }} placeholder="Name, model, colour or memory" /></Field></div><Field label="Category"><select className={input} value={category} onChange={e => browse(e.target.value, query, sort, inStock, shelf)}>{["All", ...new Set(products.map(p => p.category))].map(c => <option key={c}>{c}</option>)}</select></Field><Field label="Sort by"><select className={input} value={sort} onChange={e => browse(category, query, e.target.value, inStock, shelf)}><option value="featured">Recommended order</option><option value="name">Name: A–Z</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option></select></Field><label className="store-stock-filter"><input type="checkbox" checked={inStock} onChange={e => browse(category, query, sort, e.target.checked, shelf)} /> In stock only</label></div>
+                  <div className="store-filters"><div className="store-filter-search"><Field label="Search products"><input className={input} type="search" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") browse(category, query, sort, inStock, shelf); }} placeholder="Name, model, colour or memory" /></Field></div><Field label="Category"><select aria-label="Category" className={input} value={category} onChange={e => browse(e.target.value, query, sort, inStock, shelf)}>{["All", ...new Set(products.map(p => p.category))].map(c => <option key={c}>{c}</option>)}</select></Field><Field label="Sort by"><select aria-label="Sort by" className={input} value={sort} onChange={e => browse(category, query, e.target.value, inStock, shelf)}><option value="featured">Recommended order</option><option value="name">Name: A–Z</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option></select></Field><label className="store-stock-filter"><input type="checkbox" checked={inStock} onChange={e => browse(category, query, sort, e.target.checked, shelf)} /> In stock only</label></div>
                   <p className="store-result-count" role="status">{shown.length} {shown.length === 1 ? "product" : "products"}{shelf === "trending" ? " · Growing demand over the last 7 days" : shelf === "popular" ? " · Based on verified purchases in the last 7 days" : shelf === "budget" ? " · Lower-priced available choices in each category" : ""}</p>
                 </>}
-                {loading && !catalogue ? <p role="status" className="py-16 text-center text-zinc-500">Loading the collection…</p> : catalogue && !products.length ? <>{empty("No products available yet", "The store has not published any products. Check back soon.")}<ReferenceCollection /></> : catalogue && !shown.length ? <>{empty("No matching products", "Try another search or clear your filters.")}<button className="honor-text-button mt-4" onClick={() => browse("All", "", "featured", false)}>Clear filters</button></> : <div className="store-product-grid">{shown.map(p => <StoreProductCard key={p.id} product={p} currency={currency} trending={catalogue?.recommendations?.trending_product_ids.includes(p.id)} popular={catalogue?.recommendations?.popular_product_ids.includes(p.id)} href={href} onNavigate={navigate} />)}</div>}
+                {loading && !catalogue ? <p role="status" className="py-16 text-center text-zinc-500">Loading the collection…</p> : catalogue && !products.length ? <>{empty("No products available right now", "Please check back soon.")}<ReferenceCollection /></> : catalogue && !shown.length ? <>{empty("No matching products", "Try another search or clear your filters.")}<button className="honor-text-button mt-4" onClick={() => browse("All", "", "featured", false)}>Clear filters</button></> : <div className="store-product-grid">{shown.map(p => <StoreProductCard key={p.id} product={p} currency={currency} trending={catalogue?.recommendations?.trending_product_ids.includes(p.id)} popular={catalogue?.recommendations?.popular_product_ids.includes(p.id)} href={href} onNavigate={navigate} />)}</div>}
               </section>
               </>}
               <CollectionBanner href={href} onNavigate={navigate} />
@@ -698,10 +698,8 @@ export default function Storefront({
                   <h1 className="mt-3 text-3xl font-semibold leading-tight">
                     {selected.name}
                   </h1>
-                  <p className="mt-3 font-mono text-xs text-zinc-500">
-                    SKU {selected.sku}
-                  </p>
-                  {productVariants(products, selected).length > 1 && <div className="mt-5"><Field label="Colour and memory"><select className="online-input" value={selected.id} onChange={event => navigate("product", event.target.value)}>{productVariants(products, selected).map(variant => <option key={variant.id} value={variant.id}>{variantLabel(variant)} · {money(variant.price_minor, currency)}{variant.available <= 0 ? " · Out of stock" : ""}</option>)}</select></Field></div>}
+                  {!preview && <p className="mt-3 font-mono text-xs text-zinc-500">SKU {selected.sku}</p>}
+                  {productVariants(products, selected).length > 1 && <div className="mt-5"><Field label="Colour and memory"><select aria-label="Colour and memory" className="online-input" value={selected.id} onChange={event => navigate("product", event.target.value)}>{productVariants(products, selected).map(variant => <option key={variant.id} value={variant.id}>{variantLabel(variant)} · {money(variant.price_minor, currency)}{variant.available <= 0 ? " · Out of stock" : ""}</option>)}</select></Field></div>}
                   {(selected.colour || selected.memory || selected.market) && <p className="mt-4 text-sm text-zinc-500">{variantLabel(selected)}</p>}
                   <p className="mt-7 text-3xl font-semibold">
                     {money(selected.price_minor, currency)}
@@ -792,7 +790,7 @@ export default function Storefront({
                     >
                       <ProductImage src={p.image_url} name={p.name} className="store-cart-photo" /><div className="min-w-40 flex-1">
                         <h2 className="font-semibold">{p.name}</h2>
-                        <p className="mt-1 text-xs text-zinc-500">{p.sku}</p>
+                        <p className="mt-1 text-xs text-zinc-500">{preview ? variantLabel(p) : p.sku}</p>
                         <p className="mt-3 text-sm">
                           {money(p.price_minor, currency)} each
                         </p>
@@ -957,10 +955,10 @@ export default function Storefront({
             >
               {!accountConfigured && (
                 <p role="status" className="honor-auth-status">
-                  Account services are temporarily unavailable. You can enter your details, but they will only be submitted when the service is available.
+                  {preview ? "Sign-in is unavailable on this review page." : "Account services are temporarily unavailable. You can enter your details, but they will only be submitted when the service is available."}
                 </p>
               )}
-              <fieldset disabled={busy} className="space-y-5">
+              <fieldset disabled={busy || preview} className="space-y-5">
               {activeView === "signup" && (
                 <Field label="Your name">
                   <input
@@ -1020,7 +1018,7 @@ export default function Storefront({
               )}
               <button
                 className="honor-button w-full"
-                disabled={busy || pendingAuth.waiting}
+                disabled={busy || preview || pendingAuth.waiting}
               >
                 {busy
                   ? "Please wait…"

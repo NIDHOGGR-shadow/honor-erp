@@ -36,6 +36,7 @@
 .store-search input { border: 1px solid #bbb; border-radius: 999px; min-height: 48px; padding: 12px 20px; flex: 1; min-width: 0; font-size: 16px; }
 .store-mobile-menu { display: none; }
 .store-main { flex: 1; width: 100%; min-width: 0; }
+.store-review-note { background: #fafafa; color: #555; border-bottom: 1px solid #eee; text-align: center; padding: 8px 16px; font-size: 12px; line-height: 1.6; }
 .store-preview-label { background: #fff4d6; color: #6b4d11; text-align: center; padding: 10px 16px; font-size: 12px; line-height: 1.6; }
 .store-page { width: min(1200px, calc(100% - 80px)); margin-inline: auto; padding-block: 40px 64px; }
 .store-page > [role=alert], .store-page > [role=status] { margin-bottom: 24px; }
