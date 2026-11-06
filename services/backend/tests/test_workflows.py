@@ -464,8 +464,11 @@ def test_collection_address_is_in_private_order_details(env):
 def test_two_concurrent_buyers_cannot_reserve_last_unit(env):
     gate = Barrier(2)
 
-    def buy(_):
+    def buy(index):
         with TestClient(env["app"]) as buyer:
+            email = ("admin@example.test", "staff@example.test")[index]
+            login = buyer.post("/api/v1/auth/login", json={"email": email, "password": PASSWORD})
+            assert login.status_code == 200, login.text
             gate.wait(timeout=10)
             return buyer.post(
                 "/api/v1/storefront/test-shop/checkouts",

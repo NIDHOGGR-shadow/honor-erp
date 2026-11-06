@@ -34,3 +34,12 @@ Local socket creation is unavailable in this execution environment. Local backen
 
 Policy questions are in the separate store-manager PDF. Delivery/shipping, policy-backed service workflows, new IMEI work, advanced coupon/bundle rules and the later UX redesign remain separate work. Editable promotional wording alone must never be described as a functioning discount engine.
 
+
+## Image inputs added to the requirements
+
+- Paste a direct HTTPS image link (supported by the current editor).
+- Upload an image file from the staff device (planned).
+- Optionally import from Google Drive or another approved asset source (planned).
+- Choose durable image storage, ownership/access and broken-link handling before enabling file or cloud imports.
+
+These new image methods are requirements only; no Drive connection or upload/storage integration is part of this functional change.
