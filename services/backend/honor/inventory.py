@@ -334,9 +334,15 @@ def reserve(db, company, data, key, settings, customer_id=None):
     wanted = sorted(data.lines, key=lambda line: line.product_id)
 
     def apply():
-        products = {line.product_id: scoped(db, Product, company.id, line.product_id) for line in wanted}
+        products = {
+            line.product_id: scoped(db, Product, company.id, line.product_id, lock=True)
+            for line in wanted
+        }
         if any(not p.published for p in products.values()):
             raise HTTPException(404, "Product is not available in this shop")
+        total = sum(products[line.product_id].price_minor * line.quantity for line in wanted)
+        if data.expected_total_minor is not None and total != data.expected_total_minor:
+            raise HTTPException(409, "Prices have changed. Review the updated cart before paying.")
         locations = list(
             db.scalars(
                 select(Location)
@@ -355,7 +361,6 @@ def reserve(db, company, data, key, settings, customer_id=None):
                 409, "These items are not all available from one fulfilment location. Refresh your cart."
             )
         location, stocks = chosen
-        total = sum(products[line.product_id].price_minor * line.quantity for line in wanted)
         if total > 2_000_000_000 or total <= 0:
             raise HTTPException(422, "Order total is outside supported checkout limits")
         order = Order(

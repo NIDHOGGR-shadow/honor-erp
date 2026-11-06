@@ -48,6 +48,8 @@ import { Badge, Brand, Empty, Field, Modal } from "./ui";
 import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
 import PasswordSetup from "./PasswordSetup";
+import { ProductForm, PriceForm } from "./CatalogueForms";
+import { availableStockValue, priceMinor, productSearchText, variantLabel } from "./catalogue";
 import {
   blankWorkspace as blank,
   canOpenWorkspacePage,
@@ -513,9 +515,7 @@ export default function Workspace({
     (p) => productBalance(p.id).available <= p.reorder_point,
   );
   const shown = data.products.filter((p) =>
-    `${p.name} ${p.sku} ${p.category}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
+    productSearchText(p).includes(query.toLowerCase()),
   );
   const productName = (id: string) =>
     data.products.find((p) => p.id === id)?.name || "Product";
@@ -550,6 +550,7 @@ export default function Workspace({
             <th>On hand</th>
             <th>Reserved</th>
             <th>Available</th>
+            <th>Selling price</th>
             <th>Status</th>
             <th>Storefront</th>
             {privileged && <th />}
@@ -569,6 +570,7 @@ export default function Workspace({
                       <span className="block font-medium text-zinc-800">
                         {p.name}
                       </span>
+                      {(p.colour || p.memory || p.market) && <span className="mt-1 block text-xs text-zinc-500">{variantLabel(p)}</span>}
                       <span className="mt-1 block text-[10px] text-zinc-400">
                         {p.sku} ·{" "}
                         {p.tracking === "SERIAL"
@@ -581,6 +583,7 @@ export default function Workspace({
                 <td>{s.on_hand}</td>
                 <td className="text-zinc-400">{s.reserved}</td>
                 <td className="font-semibold">{s.available}</td>
+                <td className="whitespace-nowrap">{money(p.price_minor, company.currency)}</td>
                 <td>
                   <Badge warning={s.available <= p.reorder_point}>
                     {s.available === 0
@@ -595,6 +598,7 @@ export default function Workspace({
                 </td>
                 {privileged && (
                   <td>
+                    <button className="mr-4 text-xs text-emerald-700" onClick={() => setModal({ kind: "price", record: p })}>Update price</button>
                     <button
                       className="text-xs text-emerald-700"
                       onClick={() => setModal({ kind: "product", record: p })}
@@ -750,7 +754,7 @@ export default function Workspace({
                 className={`h-1.5 w-1.5 rounded-full ${config?.development ? "bg-amber-500" : "bg-emerald-500"}`}
               />
               {config?.development
-                ? "Local development environment"
+                ? "Staff workspace"
                 : "Shared company workspace"}
             </span>
             <span>{lastSynced ? `Last synced ${lastSynced.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}` : "Loading company records"}</span>
@@ -894,6 +898,7 @@ export default function Workspace({
           {page === "Overview" && (
             <>
               <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+                {metric("Available stock value", money(availableStockValue(data.products, balances), company.currency), "At current selling prices; reserved stock excluded", Boxes)}
                 {metric(
                   "Available units",
                   available.toLocaleString(),
@@ -1319,8 +1324,7 @@ export default function Workspace({
                 </table>
               </div>
               <p className="border-t border-zinc-100 p-6 text-xs leading-6 text-zinc-500">
-                Access changes require recent password verification. Production
-                administrators also verify an authenticator code in Security.
+                Verify your password and authenticator code in Security before changing staff access.
                 Password resets send recovery instructions; existing passwords
                 are never visible.
               </p>
@@ -1387,6 +1391,7 @@ export default function Workspace({
                       >
                         <span>
                           {a.action.replaceAll(".", " · ").replaceAll("_", " ")}
+                          {a.action === "product.price_changed" && <span className="mt-1 block text-zinc-500">{productName(a.details.product_id)}: {money(a.details.old_price_minor, company.currency)} → {money(a.details.new_price_minor, company.currency)}{a.details.reason ? " · " + a.details.reason : ""}</span>}
                         </span>
                         <span className="text-zinc-400">
                           {new Date(a.created_at).toLocaleString()}
@@ -1490,8 +1495,7 @@ export default function Workspace({
                   <h3 className="text-sm font-semibold">Authenticator</h3>
                   {config?.development ? (
                     <p className="mt-3 text-xs leading-6 text-zinc-500">
-                      Authenticator verification is enforced for administrators
-                      when managed identity is enabled in production.
+                      Authenticator verification is unavailable for this account.
                     </p>
                   ) : (
                     <>
@@ -1639,7 +1643,16 @@ export default function Workspace({
                 </p>
               </section>
               <section className="online-panel p-6">
-                <h2 className="text-sm font-semibold">Delivery jobs</h2>
+                <h2 className="text-sm font-semibold">Storefront content</h2>
+                <form key={company.id + JSON.stringify(company.storefront_content)} className="mt-5 space-y-4" onSubmit={event => formAction(event, form => api.send("/company/storefront-content", { heading: form.get("heading"), introduction: form.get("introduction"), collection_heading: form.get("collection_heading") }, "PUT"), "Storefront content updated")}>
+                  <Field label="Shop heading"><input required name="heading" minLength={2} maxLength={120} defaultValue={company.storefront_content?.heading || "Shop by category"} className="online-input" /></Field>
+                  <Field label="Shop introduction"><textarea name="introduction" rows={3} maxLength={500} defaultValue={company.storefront_content?.introduction || ""} className="online-input" /></Field>
+                  <Field label="Collection page heading"><input required name="collection_heading" minLength={2} maxLength={120} defaultValue={company.storefront_content?.collection_heading || "Collection locations"} className="online-input" /></Field>
+                  <button disabled={busy} className="honor-button">Save content</button>
+                </form>
+              </section>
+              <section className="online-panel p-6">
+                <h2 className="text-sm font-semibold">Notifications and payment processing</h2>
                 <p className="mt-3 text-xs leading-6 text-zinc-500">
                   Queued emails and payment events stay visible until processing
                   completes. Queued does not mean delivered.
@@ -1671,6 +1684,7 @@ export default function Workspace({
           title={
             {
               product: modal.record ? "Edit product" : "Add a product",
+              price: "Update selling price",
               transfer: "Dispatch a transfer",
               adjustment: "Record an adjustment",
               return: "Record an inspected return",
@@ -1688,9 +1702,12 @@ export default function Workspace({
               {error}
             </p>
           )}
-          {modal.kind === "product" ? (
+          {modal.kind === "price" ? (
+            <PriceForm product={modal.record} currency={company.currency} busy={busy} onSubmit={event => formAction(event, form => api.send(`/products/${modal.record.id}/price`, { price_minor: priceMinor(form.get("price")), expected_price_minor: modal.record.price_minor, reason: form.get("reason") }, "PATCH"), "Selling price updated")} />
+          ) : modal.kind === "product" ? (
             <ProductForm
               product={modal.record}
+              currency={company.currency}
               busy={busy}
               onSubmit={(e) =>
                 formAction(
@@ -1705,9 +1722,15 @@ export default function Workspace({
                         name: f.get("name"),
                         description: f.get("description"),
                         category: f.get("category"),
+                        model_name: f.get("model_name"),
+                        colour: f.get("colour"),
+                        memory: f.get("memory"),
+                        market: f.get("market"),
+                        source_url: f.get("source_url"),
                         tracking: f.get("tracking"),
-                        price_minor: Math.round(Number(f.get("price")) * 100),
-                        cost_minor: Math.round(Number(f.get("cost")) * 100),
+                        price_minor: priceMinor(f.get("price")),
+                        cost_minor: priceMinor(f.get("cost")),
+                        ...(modal.record ? { expected_price_minor: modal.record.price_minor } : {}),
                         reorder_point: Number(f.get("reorder")),
                         published: f.get("published") === "on",
                         image_url: f.get("image"),
@@ -1963,123 +1986,6 @@ function OperationForm({
   );
 }
 
-function ProductForm({
-  product: p,
-  busy,
-  onSubmit,
-}: {
-  product?: Product;
-  busy: boolean;
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-}) {
-  return (
-    <form className="space-y-5" onSubmit={onSubmit}>
-      <Field label="Product name">
-        <input
-          required
-          name="name"
-          minLength={2}
-          maxLength={160}
-          defaultValue={p?.name}
-          className="online-input"
-        />
-      </Field>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="SKU">
-          <input
-            required
-            name="sku"
-            maxLength={80}
-            defaultValue={p?.sku}
-            className="online-input"
-          />
-        </Field>
-        <Field label="Category">
-          <input
-            required
-            name="category"
-            maxLength={80}
-            defaultValue={p?.category || "General"}
-            className="online-input"
-          />
-        </Field>
-      </div>
-      <Field label="Tracking">
-        <select
-          name="tracking"
-          defaultValue={p?.tracking || "QUANTITY"}
-          className="online-input"
-        >
-          <option value="QUANTITY">Quantity</option>
-          <option value="SERIAL">Individual serial / IMEI</option>
-        </select>
-      </Field>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Selling price">
-          <input
-            required
-            name="price"
-            type="number"
-            min="0"
-            step="0.01"
-            max="20000000"
-            defaultValue={p ? p.price_minor / 100 : ""}
-            className="online-input"
-          />
-        </Field>
-        <Field label="Unit cost">
-          <input
-            required
-            name="cost"
-            type="number"
-            min="0"
-            step="0.01"
-            max="20000000"
-            defaultValue={p ? (p.cost_minor || 0) / 100 : 0}
-            className="online-input"
-          />
-        </Field>
-      </div>
-      <Field label="Reorder point">
-        <input
-          required
-          name="reorder"
-          type="number"
-          min="0"
-          max="1000000"
-          step="1"
-          defaultValue={p?.reorder_point ?? 5}
-          className="online-input"
-        />
-      </Field>
-      <Field label="Description">
-        <textarea
-          name="description"
-          rows={3}
-          maxLength={3000}
-          defaultValue={p?.description}
-          className="online-input"
-        />
-      </Field>
-      <Field label="Product image · HTTPS address (optional)">
-        <input
-          name="image"
-          type="url"
-          maxLength={2000}
-          defaultValue={p?.image_url}
-          className="online-input"
-        />
-      </Field>
-      <label className="flex items-center gap-2 text-xs text-zinc-600">
-        <input name="published" type="checkbox" defaultChecked={p?.published} />
-        Publish in the customer store
-      </label>
-      <button disabled={busy} className="honor-button w-full">
-        {busy ? "Saving…" : "Save product"}
-      </button>
-    </form>
-  );
-}
 function MemberForm({
   member,
   locations,
@@ -2300,7 +2206,7 @@ function SignIn({
           )}
           {development && (
             <p className="mt-5 rounded-lg bg-amber-50 p-3 text-xs leading-6 text-amber-800">
-              Development workspace. Use the account created during local setup.
+              Sign in with your assigned staff account.
             </p>
           )}
           {error && (

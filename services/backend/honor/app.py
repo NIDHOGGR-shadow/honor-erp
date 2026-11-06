@@ -71,6 +71,7 @@ def company_json(company):
         "slug": company.slug,
         "currency": company.currency,
         "timezone": company.timezone,
+        "storefront_content": company.storefront_content,
     }
 
 
@@ -96,6 +97,11 @@ def product_json(product, costs=False):
             "name",
             "description",
             "category",
+            "model_name",
+            "colour",
+            "memory",
+            "market",
+            "source_url",
             "tracking",
             "price_minor",
             "reorder_point",
@@ -559,6 +565,16 @@ def create_app(settings=None, sessions=None, route_class=None):
             "fulfil_online": location.fulfil_online,
         }
 
+    @app.put("/api/v1/company/storefront-content")
+    def edit_storefront_content(data: S.StorefrontContent, request: Request, db: Db):
+        scope = Scope(db, request)
+        scope.require("ADMIN")
+        company = db.scalar(select(Company).where(Company.id == scope.company_id).with_for_update())
+        company.storefront_content = data.model_dump()
+        inventory.audit(db, scope.company_id, scope.user.id, "storefront.content_updated")
+        db.commit()
+        return company_json(company)
+
     @app.get("/api/v1/products")
     def products(request: Request, db: Db):
         scope = Scope(db, request)
@@ -576,7 +592,9 @@ def create_app(settings=None, sessions=None, route_class=None):
     def add_product(data: S.ProductInput, request: Request, db: Db):
         scope = Scope(db, request)
         scope.require("ADMIN", "MANAGER")
-        product = Product(id=uid(), company_id=scope.company_id, **data.model_dump())
+        product = Product(
+            id=uid(), company_id=scope.company_id, **data.model_dump(exclude={"expected_price_minor"})
+        )
         db.add(product)
         inventory.audit(db, scope.company_id, scope.user.id, "product.created", product_id=product.id)
         db.commit()
@@ -587,15 +605,41 @@ def create_app(settings=None, sessions=None, route_class=None):
         scope = Scope(db, request)
         scope.require("ADMIN", "MANAGER")
         product = inventory.scoped(db, Product, scope.company_id, product_id, lock=True)
+        if data.expected_price_minor is not None and product.price_minor != data.expected_price_minor:
+            raise HTTPException(409, "The price changed while this form was open. Refresh and review it.")
         if product.tracking != data.tracking and db.scalar(
             select(Movement.id)
             .where(Movement.company_id == scope.company_id, Movement.product_id == product.id)
             .limit(1)
         ):
             raise HTTPException(409, "Tracking type cannot change after stock movements")
-        for key, value in data.model_dump().items():
+        previous_price = product.price_minor
+        for key, value in data.model_dump(exclude={"expected_price_minor"}).items():
             setattr(product, key, value)
+        if previous_price != product.price_minor:
+            inventory.audit(
+                db, scope.company_id, scope.user.id, "product.price_changed",
+                product_id=product.id, old_price_minor=previous_price,
+                new_price_minor=product.price_minor, reason="Product editor",
+            )
         inventory.audit(db, scope.company_id, scope.user.id, "product.updated", product_id=product.id)
+        db.commit()
+        return product_json(product, True)
+
+    @app.patch("/api/v1/products/{product_id}/price")
+    def edit_price(product_id: str, data: S.PriceInput, request: Request, db: Db):
+        scope = Scope(db, request)
+        scope.require("ADMIN", "MANAGER")
+        product = inventory.scoped(db, Product, scope.company_id, product_id, lock=True)
+        if product.price_minor != data.expected_price_minor:
+            raise HTTPException(409, "The price has changed. Refresh and review the current price.")
+        if product.price_minor != data.price_minor:
+            inventory.audit(
+                db, scope.company_id, scope.user.id, "product.price_changed",
+                product_id=product.id, old_price_minor=product.price_minor,
+                new_price_minor=data.price_minor, reason=data.reason,
+            )
+            product.price_minor = data.price_minor
         db.commit()
         return product_json(product, True)
 
@@ -1029,41 +1073,49 @@ def create_app(settings=None, sessions=None, route_class=None):
                 .limit(1000)
             )
         )
+        locations = list(db.scalars(
+            select(Location)
+            .where(Location.company_id == company.id, Location.fulfil_online.is_(True))
+            .order_by(Location.name)
+        ))
+        stock_by_product = {}
+        for product_id, location_id, available in db.execute(
+            select(Balance.product_id, Balance.location_id, Balance.on_hand - Balance.reserved)
+            .where(
+                Balance.company_id == company.id,
+                Balance.product_id.in_([product.id for product in products]),
+                Balance.location_id.in_([location.id for location in locations]),
+            )
+        ):
+            stock_by_product.setdefault(product_id, {})[location_id] = available
         result = []
         for product in products:
-            available = db.scalar(
-                select(func.coalesce(func.max(Balance.on_hand - Balance.reserved), 0))
-                .join(
-                    Location,
-                    (Location.company_id == Balance.company_id) & (Location.id == Balance.location_id),
-                )
-                .where(
-                    Balance.company_id == company.id,
-                    Balance.product_id == product.id,
-                    Location.fulfil_online.is_(True),
-                )
-            )
+            stock = stock_by_product.get(product.id, {})
             result.append(
                 {
                     k: v
                     for k, v in product_json(product).items()
                     if k not in {"reorder_point", "tracking", "published"}
                 }
-                | {"available": available}
+                | {
+                    "available": max(stock.values(), default=0),
+                    "location_availability": [
+                        {"location_id": loc.id, "available": stock.get(loc.id, 0)} for loc in locations
+                    ],
+                }
             )
         enabled = settings.payment_provider != "disabled" and (
             settings.payment_provider == "sandbox" or settings.merchant_company_id == company.id
         )
         return {
-            "company": {"name": company.name, "slug": company.slug, "currency": company.currency},
+            "company": {
+                "name": company.name, "slug": company.slug, "currency": company.currency,
+                "storefront_content": company.storefront_content,
+            },
             "products": result,
             "locations": [
                 {"id": loc.id, "name": loc.name, "address": loc.address}
-                for loc in db.scalars(
-                    select(Location)
-                    .where(Location.company_id == company.id, Location.fulfil_online.is_(True))
-                    .order_by(Location.name)
-                )
+                for loc in locations
             ],
             "checkout_enabled": enabled,
             "payment_methods": payments.checkout_channels(settings, company.currency) if enabled else [],

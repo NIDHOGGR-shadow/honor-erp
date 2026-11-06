@@ -1,4 +1,5 @@
 from typing import Literal
+from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -86,24 +87,44 @@ class LocationInput(Input):
         return self
 
 
+class StorefrontContent(Input):
+    heading: str = Field(default="Shop by category", min_length=2, max_length=120)
+    introduction: str = Field(default="", max_length=500)
+    collection_heading: str = Field(default="Collection locations", min_length=2, max_length=120)
+
+
 class ProductInput(Input):
     sku: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=2, max_length=160)
     description: str = Field(default="", max_length=3000)
     category: str = Field(default="General", max_length=80)
+    model_name: str = Field(default="", max_length=160)
+    colour: str = Field(default="", max_length=80)
+    memory: str = Field(default="", max_length=80)
+    market: str = Field(default="", max_length=80)
+    source_url: str = Field(default="", max_length=2000)
     tracking: Literal["QUANTITY", "SERIAL"] = "QUANTITY"
     price_minor: int = Field(strict=True, ge=0, le=2_000_000_000)
     cost_minor: int = Field(default=0, strict=True, ge=0, le=2_000_000_000)
     reorder_point: int = Field(default=5, strict=True, ge=0, le=1_000_000)
     published: bool = False
     image_url: str = Field(default="", max_length=2000)
+    expected_price_minor: int | None = Field(default=None, strict=True, ge=0, le=2_000_000_000)
 
-    @field_validator("image_url")
+    @field_validator("image_url", "source_url")
     @classmethod
     def safe_image(cls, value):
-        if value and not value.startswith("https://"):
-            raise ValueError("Product images must use HTTPS")
+        if value:
+            parsed = urlsplit(value)
+            if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+                raise ValueError("Product images and source links must use a valid HTTPS address")
         return value
+
+
+class PriceInput(Input):
+    price_minor: int = Field(strict=True, ge=0, le=2_000_000_000)
+    expected_price_minor: int = Field(strict=True, ge=0, le=2_000_000_000)
+    reason: str = Field(min_length=5, max_length=300)
 
 
 class StockInput(Input):
@@ -155,6 +176,7 @@ class Checkout(Input):
     email: str = Field(min_length=3, max_length=254, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
     client_token: str = Field(min_length=32, max_length=128)
     lines: list[CheckoutLine] = Field(min_length=1, max_length=50)
+    expected_total_minor: int | None = Field(default=None, strict=True, ge=0, le=2_000_000_000)
 
     @model_validator(mode="after")
     def no_duplicate_lines(self):

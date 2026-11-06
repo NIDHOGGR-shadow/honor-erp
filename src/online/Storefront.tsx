@@ -30,6 +30,7 @@ import {
 import { Brand, Field } from "./ui";
 import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
+import { productSearchText, productVariants, variantLabel } from "./catalogue";
 
 type Props = {
   slug: string;
@@ -337,12 +338,16 @@ export default function Storefront({
         key = crypto.randomUUID() + crypto.randomUUID();
         sessionStorage.setItem(tokenSlot, key);
       }
-      const created = await api.reserve(
-        String(form.get("name")),
-        customer.email,
-        key,
-        checkoutLines(cart, products),
-      );
+      let created;
+      try {
+        created = await api.reserve(
+          String(form.get("name")), customer.email, key,
+          checkoutLines(cart, products), total,
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) await loadCatalogue();
+        throw error;
+      }
       // Save the private order access credential before fetching details or opening hosted payment.
       sessionStorage.setItem("honor:order:" + created.id, key);
       sessionStorage.setItem(currentOrderSlot, created.id);
@@ -383,9 +388,7 @@ export default function Storefront({
       (p) =>
         (category === "All" || p.category === category) &&
         (!inStock || p.available > 0) &&
-        `${p.name} ${p.sku} ${p.category}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
+        productSearchText(p).includes(query.toLowerCase()),
     )
     .sort((a, b) =>
       sort === "price-asc"
@@ -692,11 +695,10 @@ export default function Storefront({
                 {catalogue?.company.name || "Honor"}
               </p>
               <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-                Shop the collection
+                {catalogue?.company.storefront_content?.heading || "Shop by category"}
               </h1>
               <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">
-                Find what you need, check availability and collect from the
-                store.
+                {catalogue?.company.storefront_content?.introduction || ""}
               </p>
             </div>}
             {catalogueError && (
@@ -825,6 +827,7 @@ export default function Storefront({
                         <h2 className="mt-2 text-base font-semibold leading-6">
                           {p.name}
                         </h2>
+                        {(p.colour || p.memory || p.market) && <p className="mt-2 text-xs text-zinc-500">{variantLabel(p)}</p>}
                         <p className="mt-3 text-sm text-zinc-600 line-clamp-2">
                           {p.description}
                         </p>
@@ -879,17 +882,21 @@ export default function Storefront({
                   <p className="mt-3 font-mono text-xs text-zinc-500">
                     SKU {selected.sku}
                   </p>
+                  {productVariants(products, selected).length > 1 && <div className="mt-5"><Field label="Colour and memory"><select className="online-input" value={selected.id} onChange={event => navigate("product", event.target.value)}>{productVariants(products, selected).map(variant => <option key={variant.id} value={variant.id}>{variantLabel(variant)} · {money(variant.price_minor, currency)}{variant.available <= 0 ? " · Out of stock" : ""}</option>)}</select></Field></div>}
+                  {(selected.colour || selected.memory || selected.market) && <p className="mt-4 text-sm text-zinc-500">{variantLabel(selected)}</p>}
                   <p className="mt-7 text-3xl font-semibold">
                     {money(selected.price_minor, currency)}
                   </p>
                   <p className="mt-5 whitespace-pre-line text-sm leading-7 text-zinc-600">
                     {selected.description}
                   </p>
+                  {selected.source_url && <a href={selected.source_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm text-emerald-800 underline">Full specifications</a>}
                   <p className="mt-6 text-sm font-medium text-emerald-800">
                     {selected.available > 0
                       ? "Available for collection"
                       : "Out of stock"}
                   </p>
+                  {!!selected.location_availability?.length && <div className="mt-5 space-y-2 text-sm"><p className="font-medium">Availability by collection location</p>{selected.location_availability.map(stock => <p key={stock.location_id} className="flex justify-between gap-4 text-zinc-500"><span>{catalogue?.locations?.find(location => location.id === stock.location_id)?.name || "Collection location"}</span><span>{stock.available > 0 ? stock.available + " available" : "Out of stock"}</span></p>)}</div>}
                   <div className="mt-7 flex flex-wrap gap-3">
                     {cart[selected.id] ? (
                       quantity(
@@ -1392,7 +1399,7 @@ export default function Storefront({
         {activeView === "locations" && (
           <>
             {back}
-            <h1 className="text-3xl font-semibold">Collection locations</h1>
+            <h1 className="text-3xl font-semibold">{catalogue?.company.storefront_content?.collection_heading || "Collection locations"}</h1>
             <p className="mt-4 mb-8 max-w-xl text-sm leading-7 text-zinc-600">
               Your order is assigned to a location that can supply every item.
               Confirm the address on your order before travelling.

@@ -147,6 +147,7 @@ export type Company = {
   currency: string;
   role: string;
   timezone: string;
+  storefront_content?: { heading?: string; introduction?: string; collection_heading?: string };
 };
 export type Me = {
   id: string;
@@ -163,6 +164,11 @@ export type Product = {
   name: string;
   description: string;
   category: string;
+  model_name?: string;
+  colour?: string;
+  memory?: string;
+  market?: string;
+  source_url?: string;
   tracking: string;
   price_minor: number;
   cost_minor?: number;
@@ -210,7 +216,7 @@ export type Order = {
   serials?: { product_id: string; serial: string; status: string }[];
 };
 export type Catalogue = {
-  company: { name: string; slug: string; currency: string };
+  company: { name: string; slug: string; currency: string; storefront_content?: Company["storefront_content"] };
   products: (Pick<
     Product,
     | "id"
@@ -218,9 +224,14 @@ export type Catalogue = {
     | "name"
     | "description"
     | "category"
+    | "model_name"
+    | "colour"
+    | "memory"
+    | "market"
+    | "source_url"
     | "price_minor"
     | "image_url"
-  > & { available: number })[];
+  > & { available: number; location_availability?: { location_id: string; available: number }[] })[];
   checkout_enabled: boolean;
   simulation: boolean;
   fulfilment: string;

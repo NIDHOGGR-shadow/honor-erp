@@ -66,3 +66,34 @@ test("collection page does not show an endless loader when no shop is configured
   assert.match(html, /Collection details unavailable/);
   assert.doesNotMatch(html, /Loading collection details/);
 });
+
+test("product options keep regional versions separate and show collection stock", () => {
+  const base = { name: "Test phone", model_name: "Test model", market: "Nigeria", category: "Phones", description: "", image_url: "", price_minor: 10000, available: 2 };
+  const html = renderToStaticMarkup(React.createElement(Storefront, {
+    slug: "shop", initialSearch: "view=product&product=black", initial: {
+      company: { name: "Test shop", slug: "shop", currency: "NGN" },
+      products: [
+        { ...base, id: "black", sku: "BLACK", colour: "Black", memory: "8 / 256 GB", location_availability: [{ location_id: "main", available: 2 }] },
+        { ...base, id: "white", sku: "WHITE", colour: "White", memory: "12 / 512 GB", available: 0 },
+        { ...base, id: "china", sku: "CHINA", market: "China", colour: "Red", memory: "16 / 512 GB" },
+      ], checkout_enabled: true, simulation: false, fulfilment: "COLLECTION",
+      locations: [{ id: "main", name: "Main collection point", address: "Store address" }],
+    },
+  }));
+  assert.match(html, /Colour and memory/);
+  assert.match(html, /value="white"/);
+  assert.match(html, /Out of stock/);
+  assert.doesNotMatch(html, /value="china"/);
+  assert.match(html, /Main collection point/);
+  assert.match(html, /2 available/);
+});
+
+test("storefront renders saved content as text without displaying development notes", () => {
+  const html = renderToStaticMarkup(React.createElement(Storefront, { slug: "shop", initial: {
+    company: { name: "Shop", slug: "shop", currency: "NGN", storefront_content: { heading: "Shop by category", introduction: "<script>unsafe()</script>" } },
+    products: [], checkout_enabled: false, simulation: false, fulfilment: "COLLECTION",
+  }}));
+  assert.match(html, /Shop by category/);
+  assert.match(html, /&lt;script&gt;unsafe\(\)&lt;\/script&gt;/);
+  assert.doesNotMatch(html, /<script>unsafe|prototype|Local development environment/);
+});
