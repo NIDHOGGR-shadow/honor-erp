@@ -1,10 +1,11 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import { ArrowRight, ChevronLeft, ChevronRight, Grid2X2, Headphones, Laptop, MapPin, Menu, Package, Search, ShoppingBag, Smartphone, Tablet, UserRound, Watch, X } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { ArrowRight, ChevronLeft, ChevronRight, Grid2X2, Headphones, Laptop, MapPin, Menu, Package, Pause, Play, Search, ShoppingBag, Smartphone, Tablet, UserRound, Watch, X } from "lucide-react";
 import { money, type Catalogue } from "./api";
 import { type ShopProduct, variantLabel } from "./catalogue";
 import { type ShopView } from "./customer";
 import { Modal } from "./ui";
+import { readSearchHistory, rememberSearch, suggestedProducts, type RecentSearch } from "./storefrontBrowsing";
 
 type Navigation = { href: (view: ShopView, product?: string) => string; onNavigate: (view: ShopView, product?: string) => void };
 type Browse = (category?: string, query?: string, sort?: string, stock?: boolean) => void;
@@ -31,11 +32,29 @@ function categoryIcon(category: string) {
   return Grid2X2;
 }
 
-export function StoreHeader({ products, view, category, query, count, signedIn, href, onNavigate, onBrowse, onQuery }: Navigation & {
-  products: ShopProduct[]; view: ShopView; category: string; query: string; count: number; signedIn: boolean; onBrowse: Browse; onQuery: (value: string) => void;
+export function StoreHeader({ products, view, category, query, count, signedIn, searchKey, href, onNavigate, onBrowse, onQuery }: Navigation & {
+  products: ShopProduct[]; view: ShopView; category: string; query: string; count: number; signedIn: boolean; searchKey: string; onBrowse: Browse; onQuery: (value: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [recent, setRecent] = useState<RecentSearch[]>([]);
+  const searchButton = useRef<HTMLButtonElement>(null);
+  const suggestions = suggestedProducts(products, query);
+  useEffect(() => {
+    try { setRecent(readSearchHistory(localStorage.getItem(searchKey))); }
+    catch { setRecent([]); }
+  }, [searchKey]);
+  function search(term: string) {
+    const next = rememberSearch(recent, term);
+    setRecent(next);
+    try { localStorage.setItem(searchKey, JSON.stringify({ version: 1, items: next })); } catch { /* Browsing works without storage. */ }
+    onBrowse("All", term.trim()); setSearchOpen(false);
+  }
+  function clearHistory() {
+    setRecent([]);
+    try { localStorage.removeItem(searchKey); } catch { /* No persistent history is required. */ }
+  }
+
   const categories = [...new Set(products.map(p => p.category))].sort();
   useEffect(() => { setMenuOpen(false); setSearchOpen(false); }, [view, category]);
   function link(event: React.MouseEvent, target: ShopView) {
@@ -52,27 +71,68 @@ export function StoreHeader({ products, view, category, query, count, signedIn, 
         {!categories.length && <a href={href("locations")} onClick={e => link(e, "locations")}>Collection</a>}
       </nav>
       <div className="store-header-actions">
-        {products.length > 0 && <button aria-label={searchOpen ? "Close product search" : "Open product search"} aria-expanded={searchOpen} aria-controls="store-search" onClick={() => setSearchOpen(!searchOpen)}><Search size={21} /></button>}
+        {products.length > 0 && <button ref={searchButton} aria-label={searchOpen ? "Close product search" : "Open product search"} aria-expanded={searchOpen} aria-controls="store-search" onClick={() => setSearchOpen(!searchOpen)}><Search size={21} /></button>}
         <a href={href(signedIn ? "account" : "login")} onClick={e => link(e, signedIn ? "account" : "login")} aria-label={signedIn ? "Your account" : "Customer sign in"}><UserRound size={21} /></a>
         <a href={href("cart")} onClick={e => link(e, "cart")} aria-label={`View cart, ${count} ${count === 1 ? "item" : "items"}`} className="store-bag"><ShoppingBag size={21} /><span>{count}</span></a>
         <button className="store-menu-toggle" aria-label={menuOpen ? "Close navigation" : "Open navigation"} aria-expanded={menuOpen} aria-controls="store-mobile-menu" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={23} /> : <Menu size={23} />}</button>
       </div>
     </div>
-    {searchOpen && <form id="store-search" role="search" className="store-shell store-search" onSubmit={e => { e.preventDefault(); onBrowse(category, query); setSearchOpen(false); }}><label htmlFor="store-search-query">Search products</label><div><input id="store-search-query" autoFocus value={query} onChange={e => onQuery(e.target.value)} placeholder="Search by device, colour or memory" type="search" /><button className="honor-button" type="submit">Search <Search size={16} /></button></div></form>}
+    {searchOpen && <form id="store-search" role="search" className="store-shell store-search"
+      onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); setSearchOpen(false); searchButton.current?.focus(); } }}
+      onSubmit={event => { event.preventDefault(); search(query); }}>
+      <label htmlFor="store-search-query">Search products</label>
+      <div><input id="store-search-query" autoFocus autoComplete="off" value={query} onChange={event => onQuery(event.target.value)} placeholder="Search by device, colour or memory" type="search" /><button className="honor-button" type="submit">Search <Search size={16} /></button></div>
+      {suggestions.length > 0 && <ul className="store-search-suggestions" aria-label="Search suggestions">{suggestions.map(product => <li key={product.id}><button type="button" onClick={() => { onNavigate("product", product.id); setSearchOpen(false); }}><span>{product.name}<small>{variantLabel(product, false)}</small></span><ArrowRight size={16} /></button></li>)}</ul>}
+      {recent.length > 0 && <section className="store-recent-searches" aria-label="Recent searches"><p>Recent searches</p><button type="button" className="honor-text-button" onClick={clearHistory}>Clear recent searches</button><ul>{recent.map(item => <li key={item.query.toLowerCase()}><button type="button" onClick={() => search(item.query)}>{item.query}</button></li>)}</ul></section>}
+    </form>}
+
     {menuOpen && <nav id="store-mobile-menu" aria-label="Mobile store navigation" className="store-mobile-menu"><button onClick={() => { onBrowse("All", "", "featured", false); setMenuOpen(false); }}>All products</button>{categories.map(c => <button key={c} onClick={() => { onBrowse(c, ""); setMenuOpen(false); }}>{c}</button>)}<a href={href("locations")} onClick={e => link(e, "locations")}>Collection locations</a><a href={href("account")} onClick={e => link(e, "account")}>Your orders</a>{!signedIn && <a href={href("signup")} onClick={e => link(e, "signup")}>Create account</a>}</nav>}
   </header>;
 }
 
 export function StoreHero({ products, currency, heading, introduction, href, onNavigate }: Navigation & { products: ShopProduct[]; currency: string; heading?: string; introduction?: string }) {
   const [index, setIndex] = useState(0);
-  const available = products.filter(p => p.available > 0);
-  const slides = available.filter((p, i) => available.findIndex(x => (x.model_name || x.id) === (p.model_name || p.id)) === i).slice(0, 5);
-  const current = slides[index % Math.max(slides.length, 1)];
-  const preview = referenceProducts[0];
-  return <section className={`store-hero ${!current ? "store-hero-preview" : ""}`} aria-label={current ? "Featured products" : "Explore HONOR devices"} aria-roledescription={slides.length > 1 ? "carousel" : undefined}>
-    <div className="store-shell store-hero-inner"><div className="store-hero-copy"><p className="store-kicker">{current ? "Discover HONOR" : "Explore HONOR"}</p><h1>{current?.model_name || current?.name || heading || "Discover your next HONOR"}</h1><p className="store-hero-description">{current ? current.description || introduction || "" : introduction || "Made for the way you work, create and connect."}</p>{current ? <><p className="store-hero-price">{money(current.price_minor, currency)}</p><a className="honor-button" href={href("product", current.id)} onClick={e => { if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && e.button === 0) { e.preventDefault(); onNavigate("product", current.id); } }}>View product <ArrowRight size={17} /></a></> : <><p className="store-preview-note">Local prices and availability will appear as products are added.</p><a className="honor-button" href="#reference-products">Explore devices <ArrowRight size={17} /></a></>}</div><div className="store-hero-image"><ProductImage src={current?.image_url || (!current ? preview.image : undefined)} name={current?.name || preview.name} eager /></div></div>
-    {slides.length > 1 && <div className="store-carousel-controls"><button aria-label="Previous featured product" onClick={() => setIndex((index + slides.length - 1) % slides.length)}><ChevronLeft size={18} /></button><div aria-label="Choose featured product">{slides.map((p, i) => <button key={p.id} className="store-carousel-dot" aria-label={`Show ${p.name}`} aria-pressed={i === index % slides.length} onClick={() => setIndex(i)} />)}</div><button aria-label="Next featured product" onClick={() => setIndex((index + 1) % slides.length)}><ChevronRight size={18} /></button></div>}
+  const [playing, setPlaying] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [visible, setVisible] = useState(true);
+  const available = products.filter(product => product.available > 0);
+  const slides = available.filter((product, i) => available.findIndex(other => (other.model_name || other.id) === (product.model_name || product.id)) === i).slice(0, 5);
+  const count = slides.length || referenceProducts.length;
+  const position = index % count;
+  const current = slides[position];
+  const reference = referenceProducts[position % referenceProducts.length];
+  const names = slides.length ? slides.map(product => product.name) : referenceProducts.map(product => product.name);
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    const updateMotion = () => setPlaying(Boolean(media && !media.matches));
+    const updateVisibility = () => setVisible(document.visibilityState !== "hidden");
+    updateMotion(); updateVisibility();
+    media?.addEventListener("change", updateMotion);
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => { media?.removeEventListener("change", updateMotion); document.removeEventListener("visibilitychange", updateVisibility); };
+  }, []);
+  useEffect(() => {
+    if (!playing || hovered || focused || !visible || count < 2) return;
+    const timer = setInterval(() => setIndex(previous => (previous + 1) % count), 5000);
+    return () => clearInterval(timer);
+  }, [playing, hovered, focused, visible, count]);
+  return <section className={`store-hero ${!current ? "store-hero-preview" : ""}`} aria-label={current ? "Featured products" : "Explore HONOR devices"} aria-roledescription={count > 1 ? "carousel" : undefined}
+    onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusCapture={() => setFocused(true)}
+    onBlurCapture={event => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
+    <div className="store-shell store-hero-inner"><div className="store-hero-copy"><p className="store-kicker">{current ? "Discover HONOR" : "Explore HONOR"}</p><h1>{current?.model_name || current?.name || heading || "Discover your next HONOR"}</h1><p className="store-hero-description">{current ? current.description || introduction || "" : introduction || "Made for the way you work, create and connect."}</p>{current ? <><p className="store-hero-price">{money(current.price_minor, currency)}</p><a className="honor-button" href={href("product", current.id)} onClick={event => { if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.button === 0) { event.preventDefault(); onNavigate("product", current.id); } }}>View product <ArrowRight size={17} /></a></> : <><p className="store-preview-note">Local prices and availability will appear as products are added.</p><a className="honor-button" href="#reference-products">Explore devices <ArrowRight size={17} /></a></>}</div><div className="store-hero-image"><ProductImage src={current ? current.image_url : reference.image} name={current?.name || reference.name} eager /></div></div>
+    {count > 1 && <div className="store-carousel-controls"><button aria-label="Previous featured product" onClick={() => setIndex((position + count - 1) % count)}><ChevronLeft size={18} /></button><div aria-label="Choose featured product">{names.map((name, i) => <button key={`${name}-${i}`} className="store-carousel-dot" aria-label={`Show ${name}`} aria-pressed={i === position} onClick={() => setIndex(i)} />)}</div><button aria-label="Next featured product" onClick={() => setIndex((position + 1) % count)}><ChevronRight size={18} /></button><button aria-label={playing ? "Pause slideshow" : "Play slideshow"} onClick={() => setPlaying(previous => !previous)}>{playing ? <Pause size={16} /> : <Play size={16} />}</button></div>}
   </section>;
+}
+
+export function AddedToCart({ product, currency, quantity, onClose, onViewCart }: {
+  product: ShopProduct; currency: string; quantity: number; onClose: () => void; onViewCart: () => void;
+}) {
+  return <Modal title="Added to your cart" onClose={onClose}>
+    <div className="store-cart-confirmation"><ProductImage src={product.image_url} name={product.name} /><div><h3>{product.name}</h3><p>{variantLabel(product, false)}</p><strong>{quantity} × {money(product.price_minor, currency)}</strong></div></div>
+    <p className="store-cart-confirmation-note">Adding to your cart does not hold stock. Availability and price are checked when you reserve.</p>
+    <div className="store-cart-confirmation-actions"><button className="online-secondary" onClick={onClose}>Continue shopping</button><button className="honor-button" onClick={onViewCart}>View cart <ArrowRight size={16} /></button></div>
+  </Modal>;
 }
 
 export function CategoryShortcuts({ products, onBrowse, onLocations }: { products: ShopProduct[]; onBrowse: Browse; onLocations: () => void }) {
