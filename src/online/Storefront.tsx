@@ -1257,7 +1257,7 @@ export default function Storefront({
         )}
       </main>
       {addedProduct && cart[addedProductId] > 0 && <AddedToCart product={addedProduct} quantity={cart[addedProductId]} currency={currency} onClose={() => setAddedProductId("")} onViewCart={() => { setAddedProductId(""); navigate("cart"); }} />}
-      <StoreFooter companyName={catalogue?.company.name} staffUrl={staffUrl} href={href} onNavigate={navigate} />
+      <StoreFooter companyName={catalogue?.company.name} staffUrl={staffUrl} products={products} currency={currency} signedIn={Boolean(customer)} href={href} onNavigate={navigate} onBrowse={browse} />
     </div>
   );
 }
