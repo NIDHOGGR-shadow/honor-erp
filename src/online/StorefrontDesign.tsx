@@ -153,6 +153,25 @@ export function CollectionBanner({ href, onNavigate }: Navigation) {
   return <section className="store-collection-banner"><MapPin size={29} aria-hidden="true" /><div><h2>Find your collection location</h2><p>Check collection details before reserving your device.</p></div><a href={href("locations")} className="online-secondary" onClick={e => { if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && e.button === 0) { e.preventDefault(); onNavigate("locations"); } }}>View locations <ArrowRight size={16} /></a></section>;
 }
 
-export function StoreFooter({ companyName, staffUrl, href, onNavigate }: Navigation & { companyName?: string; staffUrl: string }) {
-  return <footer className="store-footer"><div className="store-shell"><div className="store-footer-top"><div><strong className="store-wordmark">HONOR</strong><p>{companyName && !["honor", "honor nigeria"].includes(companyName.trim().toLowerCase()) ? companyName : "Nigeria"}</p></div><nav aria-label="Footer navigation">{([["shop", "Products"], ["locations", "Collection locations"], ["account", "Your orders"]] as const).map(([view, text]) => <a key={view} href={href(view)} onClick={e => { if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey && e.button === 0) { e.preventDefault(); onNavigate(view); } }}>{text}</a>)}<a href={staffUrl}>Staff sign-in</a></nav></div><p className="store-footer-bottom">Prices and availability are confirmed when your order is reserved.</p></div></footer>;
+export function StoreFooter({ companyName, staffUrl, products = [], currency = "NGN", signedIn = false, href, onNavigate, onBrowse }: Navigation & {
+  companyName?: string; staffUrl: string; products?: ShopProduct[]; currency?: string; signedIn?: boolean; onBrowse: Browse;
+}) {
+  const categories = [...new Set(products.map(product => product.category).filter(Boolean))].sort();
+  function navigate(event: React.MouseEvent<HTMLAnchorElement>, view: ShopView) {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault(); onNavigate(view);
+  }
+  function browse(event: React.MouseEvent<HTMLAnchorElement>, category = "All") {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault(); onBrowse(category, "", "featured", false);
+  }
+  return <footer id="store-footer" className="store-footer"><div className="store-shell">
+    <div className="store-footer-grid">
+      <div className="store-footer-brand"><strong className="store-wordmark">HONOR</strong><p>{companyName && !["honor", "honor nigeria"].includes(companyName.trim().toLowerCase()) ? companyName : "Nigeria"}</p><p className="store-footer-tagline">Made for the way you work, create and connect.</p></div>
+      <nav aria-label="Shopping"><h2>Shopping</h2><a href="?" onClick={event => browse(event)}>All products</a>{categories.slice(0, 6).map(category => <a key={category} href={`?category=${encodeURIComponent(category)}#catalogue`} onClick={event => browse(event, category)}>{category}</a>)}<a href={href("cart")} onClick={event => navigate(event, "cart")}>View cart</a></nav>
+      <nav aria-label="Your account"><h2>Your account</h2><a href={href("account")} onClick={event => navigate(event, "account")}>Your orders</a>{!signedIn && <><a href={href("login")} onClick={event => navigate(event, "login")}>Sign in</a><a href={href("signup")} onClick={event => navigate(event, "signup")}>Create account</a><a href={href("recover")} onClick={event => navigate(event, "recover")}>Forgot password?</a></>}</nav>
+      <section className="store-footer-collection" aria-label="Collection"><h2>Collection</h2><MapPin size={24} aria-hidden="true" /><p>Check collection details before reserving your device.</p><a href={href("locations")} onClick={event => navigate(event, "locations")}>Collection locations <ArrowRight size={15} /></a></section>
+    </div>
+    <div className="store-footer-bottom"><p>Prices and availability are confirmed when your order is reserved.</p><div className="store-footer-meta"><span>Nigeria · {currency}</span><a href={staffUrl}>Staff sign-in</a><a href="#shop-content">Back to top <ChevronLeft className="store-back-top-icon" size={15} aria-hidden="true" /></a></div></div>
+  </div></footer>;
 }
