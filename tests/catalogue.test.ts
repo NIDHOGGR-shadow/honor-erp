@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { availableStockValue, priceMinor, productSearchText, productVariants } from "../src/online/catalogue";
+import { availableStockValue, priceMinor, productSearchText, productVariants, variantLabel } from "../src/online/catalogue";
 import type { Catalogue, Product } from "../src/online/api";
 
 const product = (id: string, fields = {}): Catalogue["products"][number] => ({
@@ -23,6 +23,13 @@ test("prices convert exact decimal input to minor units and reject ambiguous pri
   assert.equal(priceMinor(" 20000000 "), 2_000_000_000);
   for (const value of ["", "NaN", "-1", "1e4", "1,000", "1.001", "20000000.01"])
     assert.throws(() => priceMinor(value));
+});
+
+test("review variant labels omit internal sample codes without changing real SKU fallbacks", () => {
+  const laptop = product("SAMPLE-LAPTOP", { colour: "", memory: "", market: "" });
+  assert.equal(variantLabel(laptop, false), "");
+  assert.equal(variantLabel(laptop), "SAMPLE-LAPTOP");
+  assert.equal(variantLabel(product("SAMPLE-PHONE"), false), "Black · 8 / 256 GB · Nigeria");
 });
 
 test("available stock value excludes reservations and follows changed selling prices", () => {

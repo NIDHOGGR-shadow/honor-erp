@@ -20,6 +20,7 @@ from .accounts import notify_account_change, sync_verified_email
 from .config import get_settings
 from .db import database, session
 from .logging import logger
+from .recommendations import catalogue_recommendations
 from .models import (
     Audit,
     Balance,
@@ -1113,6 +1114,7 @@ def create_app(settings=None, sessions=None, route_class=None):
                 "storefront_content": company.storefront_content,
             },
             "products": result,
+            "recommendations": catalogue_recommendations(db, company.id, result),
             "locations": [
                 {"id": loc.id, "name": loc.name, "address": loc.address}
                 for loc in locations

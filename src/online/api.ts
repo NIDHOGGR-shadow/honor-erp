@@ -216,6 +216,7 @@ export type Order = {
   serials?: { product_id: string; serial: string; status: string }[];
 };
 export type Catalogue = {
+  recommendations?: { popular_product_ids: string[]; trending_product_ids: string[]; budget_product_ids: string[]; window_days: number };
   company: { name: string; slug: string; currency: string; storefront_content?: Company["storefront_content"] };
   products: (Pick<
     Product,
@@ -239,9 +240,10 @@ export type Catalogue = {
   locations?: { id: string; name: string; address: string }[];
 };
 export const money = (minor: number, currency: string) =>
-  new Intl.NumberFormat("en-GB", {
+  new Intl.NumberFormat(currency === "NGN" ? "en-NG" : "en-GB", {
     style: "currency",
     currency,
+    ...(currency === "NGN" ? { currencyDisplay: "narrowSymbol" as const } : {}),
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(minor / 100);
