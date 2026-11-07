@@ -127,7 +127,7 @@
 .store-cart-photo { height: 92px; width: 80px; object-fit: contain; flex-shrink: 0; }
 .store-steps { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 12px; color: #666; padding: 0 0 24px; }
 .store-steps [aria-current] { color: #111; font-weight: 700; }
-.store-footer { background: #f5f5f5; margin-top: auto; padding-block: 56px 20px; border-top: 1px solid #e5e5e5; }
+.store-footer { background: #e5e5e5; margin-top: auto; padding-block: 56px 20px; border-top: 1px solid #e5e5e5; }
 .store-footer-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1.2fr; gap: 40px; padding-bottom: 40px; }
 .store-wordmark { font-size: 32px; letter-spacing: .035em; }
 .store-footer-brand > p { font-size: 12px; color: #666; margin-top: 8px; }
