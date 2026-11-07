@@ -31,7 +31,7 @@ import { Field } from "./ui";
 import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
 import { catalogueSelection, productVariants, readShopFilters, variantLabel } from "./catalogue";
-import { CategoryShortcuts, CollectionBanner, ProductImage, ReferenceCollection, StoreFooter, StoreHeader, StoreHero, StoreProductCard } from "./StorefrontDesign";
+import { AddedToCart, CategoryShortcuts, CollectionBanner, ProductImage, ReferenceCollection, StoreFooter, StoreHeader, StoreHero, StoreProductCard } from "./StorefrontDesign";
 
 type Props = {
   slug: string;
@@ -68,6 +68,7 @@ export default function Storefront({
   const [catalogueMissing, setCatalogueMissing] = useState(!configured);
   const profileGeneration = useRef(0);
   const [cart, setCart] = useState<Cart>({});
+  const [addedProductId, setAddedProductId] = useState("");
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [history, setHistory] = useState<Order[] | null>(null);
   const [profileError, setProfileError] = useState("");
@@ -185,6 +186,7 @@ export default function Storefront({
   useEffect(() => {
     const sync = () => {
       setRoute(readRoute(window.location.search));
+      setAddedProductId("");
       restoreFilters(window.location.search);
       setError("");
       setNotice("");
@@ -261,12 +263,13 @@ export default function Storefront({
     if (nextStock) params.set("stock", "1");
     if (nextShelf !== "featured") params.set("shelf", nextShelf);
     window.history.pushState({}, "", "?" + params.toString() + "#catalogue");
-    restoreFilters(params.toString()); setRoute({ view: "shop", product: "" }); setError(""); setNotice("");
+    restoreFilters(params.toString()); setAddedProductId(""); setRoute({ view: "shop", product: "" }); setError(""); setNotice("");
     requestAnimationFrame(() => document.getElementById("catalogue")?.scrollIntoView({ block: "start" }));
   }
   function navigate(view: ShopView, product = "") {
     window.history.pushState({}, "", href(view, product));
     setRoute({ view, product });
+    setAddedProductId("");
     setError("");
     setNotice("");
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -292,7 +295,7 @@ export default function Storefront({
       setNotice(
         "Checkout supports up to 50 different items. Complete this cart before starting another.",
       );
-      return;
+      return false;
     }
     const product = products.find((p) => p.id === id);
     const next = { ...cart };
@@ -310,6 +313,7 @@ export default function Storefront({
         "Your cart cannot be saved in this browser. Keep this page open while shopping.",
       );
     }
+    return q > 0;
   }
   async function run(action: () => Promise<void>) {
     setBusy(true);
@@ -626,6 +630,7 @@ export default function Storefront({
     );
   }
 
+  const addedProduct = products.find(product => product.id === addedProductId);
   return (
     <div className="online-app storefront flex min-h-screen flex-col">
       <ConnectionNotice />
@@ -636,7 +641,7 @@ export default function Storefront({
       >
         Skip to content
       </a>
-      <StoreHeader products={products} view={activeView} category={category} query={query} count={count} signedIn={Boolean(customer)} href={href} onNavigate={navigate} onBrowse={browse} onQuery={setQuery} />
+      <StoreHeader searchKey={`honor:recent-searches:${preview ? "review:" : ""}${slug}`} products={products} view={activeView} category={category} query={query} count={count} signedIn={Boolean(customer)} href={href} onNavigate={navigate} onBrowse={browse} onQuery={setQuery} />
       <main
         id="shop-content"
         className={`store-main ${activeView === "shop" ? "" : "store-page"}`}
@@ -725,7 +730,7 @@ export default function Storefront({
                       <button
                         disabled={selected.available <= 0}
                         className="honor-button"
-                        onClick={() => updateCart(selected.id, 1)}
+                        onClick={() => { if (updateCart(selected.id, 1)) setAddedProductId(selected.id); }}
                       >
                         <Plus size={17} /> Add to cart
                       </button>
@@ -1251,6 +1256,7 @@ export default function Storefront({
           </>
         )}
       </main>
+      {addedProduct && cart[addedProductId] > 0 && <AddedToCart product={addedProduct} quantity={cart[addedProductId]} currency={currency} onClose={() => setAddedProductId("")} onViewCart={() => { setAddedProductId(""); navigate("cart"); }} />}
       <StoreFooter companyName={catalogue?.company.name} staffUrl={staffUrl} href={href} onNavigate={navigate} />
     </div>
   );
