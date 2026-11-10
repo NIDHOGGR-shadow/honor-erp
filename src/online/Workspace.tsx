@@ -275,6 +275,34 @@ export default function Workspace({
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(configured && !recoveryToken);
   const [mobile, setMobile] = useState(false);
+  const mobileCloseButton = useRef<HTMLButtonElement>(null);
+  const mobileMenuTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!mobile) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    mobileCloseButton.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobile(false);
+      }
+      if (event.key === "Tab") {
+        const panel = document.getElementById("honor-mobile-nav-panel");
+        const focusable = panel?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], select:not([disabled]), input:not([disabled])');
+        if (!focusable?.length) return;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      mobileMenuTrigger.current?.focus();
+    };
+  }, [mobile]);
   const [modal, setModal] = useState<{ kind: string; record?: any; suggestion?: HonorDeviceReference } | null>(
     null,
   );
@@ -705,17 +733,29 @@ export default function Workspace({
       <aside aria-label="Staff workspace navigation" className="fixed inset-y-0 left-0 z-40 hidden w-[236px] flex-col overflow-y-auto bg-[#132b25] px-4 py-7 text-white md:flex">
         {navigation}
       </aside>
-      {mobile && <Modal title="Navigation" onClose={() => setMobile(false)}><div className="rounded-xl bg-[#132b25] px-3 py-5 text-white">{navigation}</div></Modal>}
+      {mobile && (
+        <div className="honor-mobile-navigation-layer fixed inset-0 z-[80] md:hidden">
+          <button type="button" className="honor-mobile-navigation-backdrop absolute inset-0" aria-label="Close navigation" onClick={() => setMobile(false)} />
+          <aside id="honor-mobile-nav-panel" role="dialog" aria-modal="true" aria-label="HONOR staff navigation" className="honor-mobile-navigation-drawer">
+            <div className="honor-mobile-navigation-header">
+              <strong>HONOR</strong>
+              <button type="button" ref={mobileCloseButton} aria-label="Close menu" onClick={() => setMobile(false)}><X size={20} /></button>
+            </div>
+            <div className="honor-mobile-navigation-content">{navigation}</div>
+          </aside>
+        </div>
+      )}
 
       <nav aria-label="Mobile staff navigation" className="honor-mobile-nav fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 gap-1 border-t border-zinc-200 bg-white px-2 pt-1 md:hidden">
-        {[{label: "Overview", icon: LayoutDashboard}, {label: "Inventory", icon: Boxes}, {label: "Orders", icon: ShoppingBag}].map(item => <button key={item.label} onClick={() => go(item.label as Page)} aria-current={page === item.label ? "page" : undefined} className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] ${page === item.label ? "bg-emerald-50 font-semibold text-emerald-800" : "text-zinc-600"}`}><item.icon size={19} />{item.label}</button>)}
-        <button onClick={() => setMobile(true)} aria-expanded={mobile} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[11px] text-zinc-600"><Menu size={19} />More</button>
+        {[{label: "Overview", icon: LayoutDashboard}, {label: "Inventory", icon: Boxes}, {label: "Orders", icon: ShoppingBag}].map(item => <button key={item.label} onClick={() => go(item.label as Page)} aria-current={page === item.label ? "page" : undefined} className={`honor-mobile-navigation-tab flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] ${page === item.label ? "font-semibold" : ""}`}><item.icon size={19} />{item.label === "Inventory" ? "Products" : item.label}</button>)}
+        <button onClick={() => setMobile(true)} aria-expanded={mobile} aria-controls="honor-mobile-nav-panel" className="honor-mobile-navigation-tab flex min-h-12 flex-col items-center justify-center gap-1 rounded-lg text-[11px]"><Menu size={19} />More</button>
       </nav>
       <div className="md:ml-[236px]">
         <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-2 border-b border-zinc-200/70 bg-white px-3 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <button
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-zinc-50 md:hidden"
+              ref={mobileMenuTrigger}
               aria-label="Open navigation"
               aria-expanded={mobile}
               onClick={() => setMobile(true)}
