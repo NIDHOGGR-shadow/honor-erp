@@ -24,7 +24,8 @@ const commonPages = new Set([
 
 export function canOpenWorkspacePage(role: string, page: string) {
   if (!roles.has(role)) return false;
-  if (page === "Company" || page === "People & access") return role === "ADMIN";
+  if (page === "Company" || page === "People & access" || page === "Online store") return role === "ADMIN";
+  if (page === "Reports") return role === "ADMIN" || role === "MANAGER";
   if (page === "Receive stock") return role !== "SALES";
   return commonPages.has(page);
 }
