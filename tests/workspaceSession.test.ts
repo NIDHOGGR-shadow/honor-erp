@@ -133,4 +133,11 @@ test("staff navigation denies unknown roles, unknown pages and ungranted operati
   assert.equal(canOpenWorkspacePage("SALES", "Inventory"), true);
   assert.equal(canOpenWorkspacePage("OWNER", "Overview"), false);
   assert.equal(canOpenWorkspacePage("ADMIN", "Unrecognised module"), false);
+  assert.equal(canOpenWorkspacePage("ADMIN", "Online store"), true);
+  assert.equal(canOpenWorkspacePage("MANAGER", "Online store"), false);
+  assert.equal(canOpenWorkspacePage("SALES", "Online store"), false);
+  assert.equal(canOpenWorkspacePage("ADMIN", "Reports"), true);
+  assert.equal(canOpenWorkspacePage("MANAGER", "Reports"), true);
+  assert.equal(canOpenWorkspacePage("STOCK", "Reports"), false);
+  assert.equal(canOpenWorkspacePage("SALES", "Reports"), false);
 });

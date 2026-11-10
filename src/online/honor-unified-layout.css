@@ -129,3 +129,36 @@
   .honor-staff-signin .honor-staff-entry .honor-auth { padding:22px 19px; }
 }
 @media(prefers-reduced-motion:reduce){.storefront .store-product-card{transition:none}}
+
+/* Business pages: real-data reporting and online store editing. */
+.honor-reports,.honor-store-settings{font-size:12px;color:#302d33}
+.honor-reports-filters{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:15px;color:#77727a;font-size:11px}
+.honor-reports-filters p{margin:0}
+.honor-reports-metrics,.honor-store-settings-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid #e8e6e9;border-radius:8px;overflow:hidden;margin-bottom:19px}
+.honor-reports-metrics>div,.honor-store-settings-metrics>div{padding:17px 15px;border-right:1px solid #ebe9ed;min-width:0;background:#fff}
+.honor-reports-metrics>div:last-child,.honor-store-settings-metrics>div:last-child{border-right:0}
+.honor-reports-metrics span,.honor-store-settings-metrics span{display:block;font-size:11px;color:#817c85}
+.honor-reports-metrics strong,.honor-store-settings-metrics strong{display:block;font-size:23px;letter-spacing:-.04em;margin:9px 0 5px;color:#2a262e}
+.honor-reports-metrics small{display:block;font-size:10px;line-height:1.5;color:#938e96}
+.honor-reports-summary{display:flex;align-items:center;justify-content:space-between;gap:22px;border:1px solid #e8e6e9;border-radius:8px;padding:17px 20px;margin-bottom:18px}
+.honor-reports-summary span{display:block;color:#827d86;font-size:10px;margin-bottom:7px}
+.honor-reports-summary strong{font-size:23px;font-weight:700;letter-spacing:-.04em}
+.honor-reports-summary p{margin:0;max-width:440px;color:#8b858f;font-size:10px;line-height:1.7}
+.honor-reports-section{margin-bottom:19px;overflow:hidden}
+.honor-reports-section-title,.honor-store-settings-section-title{display:flex;align-items:start;justify-content:space-between;gap:18px;padding:16px 18px;border-bottom:1px solid #ebe9ed}
+.honor-reports-section-title h2,.honor-store-settings-section-title h3,.honor-store-settings-header h2,.honor-store-settings-panel h3{font-size:14px;font-weight:700;letter-spacing:-.02em;margin:0 0 5px}
+.honor-reports-section-title p,.honor-store-settings-section-title p,.honor-store-settings-header p,.honor-store-settings-panel p{margin:0;color:#88838c;font-size:11px;line-height:1.65}
+.honor-reports-empty{padding:20px;color:#85808a;font-size:11px}
+.honor-store-settings-header{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:17px}
+.honor-store-settings-metrics{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:23px}
+.honor-store-settings-columns{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,.9fr);align-items:start;gap:16px}
+.honor-store-settings-form{padding:18px;display:grid;gap:16px}
+.honor-store-settings-form label{display:grid;gap:7px;font-size:11px;font-weight:650;color:#524d56}
+.honor-store-settings-form input,.honor-store-settings-form textarea{display:block;width:100%;font-size:12px}
+.honor-store-settings-form button{justify-self:start}
+.honor-store-settings-panel{padding:18px;margin-bottom:15px}
+.honor-store-settings-panel>button{margin-top:17px}
+.honor-store-settings-banner{display:grid;place-items:center;border:1px dashed #cbc6cd;background:#f6f5f7;border-radius:6px;aspect-ratio:16/9;margin:15px 0;color:#aaa4ad;font-size:11px}
+.honor-store-settings-banner.mobile{aspect-ratio:4/5;max-width:145px;margin-inline:auto}
+@media(max-width:1050px){.honor-reports-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.honor-reports-metrics>div:nth-child(3){border-right:0}.honor-store-settings-columns{grid-template-columns:1fr}}
+@media(max-width:680px){.honor-reports-metrics,.honor-store-settings-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.honor-reports-metrics>div,.honor-store-settings-metrics>div{border-right:1px solid #ebe9ed;border-bottom:1px solid #ebe9ed}.honor-reports-metrics>div:nth-child(2n),.honor-store-settings-metrics>div:nth-child(2n){border-right:0}.honor-reports-summary{align-items:flex-start;flex-direction:column}.honor-store-settings-header{align-items:flex-start;flex-direction:column}.honor-reports-section-title{align-items:flex-start}}

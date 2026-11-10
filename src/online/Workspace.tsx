@@ -49,6 +49,8 @@ import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
 import PasswordSetup from "./PasswordSetup";
 import { ProductForm, PriceForm } from "./CatalogueForms";
+import { HonorOperationsReports } from "./HonorOperationsReports";
+import { HonorOnlineStoreSettings } from "./HonorOnlineStoreSettings";
 import { HonorDevicePicker } from "./HonorDevicePicker";
 import type { HonorDeviceReference } from "./honorDeviceLibrary";
 import { ProductImage } from "./StorefrontDesign";
@@ -212,6 +214,8 @@ function SerialLookup({ api }: { api: ReturnType<typeof client> }) {
 
 type Page =
   | "Overview"
+  | "Reports"
+  | "Online store"
   | "Inventory"
   | "Receive stock"
   | "Transfers"
@@ -225,6 +229,8 @@ const pages: {
   icon: React.ComponentType<any>;
 }[] = [
   { label: "Overview", icon: LayoutDashboard },
+  { label: "Reports", icon: ClipboardList },
+  { label: "Online store", icon: ExternalLink },
   { label: "Inventory", icon: Boxes },
   { label: "Receive stock", icon: ArrowDownToLine },
   { label: "Transfers", icon: Truck },
@@ -643,6 +649,7 @@ export default function Workspace({
             { title: "WORKSPACE", entries: ["Inventory", "Overview"] as Page[] },
             { title: "SALES", entries: ["Orders"] as Page[] },
             { title: "INVENTORY", entries: ["Receive stock", "Transfers"] as Page[] },
+            { title: "BUSINESS", entries: ["Reports", "Online store"] as Page[] },
             { title: "MANAGEMENT", entries: ["Activity", "People & access", "Company", "Security"] as Page[] },
           ].map((group) => {
             const visible = pages.filter((p) => group.entries.includes(p.label) && canOpenWorkspacePage(company.role, p.label));
@@ -873,6 +880,10 @@ export default function Workspace({
                       "Give each person the access they need. Your company stays in control.",
                     Activity:
                       "A traceable record of the stock that moved and the people who changed it.",
+                    Reports:
+                      "Actual product, stock and paid-order information from your workspace.",
+                    "Online store":
+                      "Edit what customers read and review the products ready for your website.",
                     Security:
                       "Manage your password, authenticator and sensitive-action verification.",
                     Company:
@@ -1043,6 +1054,31 @@ export default function Workspace({
                 </section>
               </div>
             </>
+          )}
+          {page === "Reports" && (company.role === "ADMIN" || company.role === "MANAGER") && (
+            <HonorOperationsReports
+              products={data.products}
+              balances={balances}
+              orders={orders}
+              locations={data.locations}
+              location={location}
+              currency={company.currency}
+              onProducts={() => go("Inventory")}
+              onOrders={() => go("Orders")}
+            />
+          )}
+          {page === "Online store" && company.role === "ADMIN" && (
+            <HonorOnlineStoreSettings
+              company={company}
+              products={data.products}
+              busy={busy}
+              onProducts={() => go("Inventory")}
+              onSubmit={event => formAction(event, form => api.send("/company/storefront-content", {
+                heading: form.get("heading"),
+                introduction: form.get("introduction"),
+                collection_heading: form.get("collection_heading"),
+              }, "PUT"), "Storefront content updated")}
+            />
           )}
           {page === "Inventory" && (
             <section className="online-panel overflow-hidden">
@@ -1676,13 +1712,9 @@ export default function Workspace({
                 </p>
               </section>
               <section className="online-panel p-6">
-                <h2 className="text-sm font-semibold">Storefront content</h2>
-                <form key={company.id + JSON.stringify(company.storefront_content)} className="mt-5 space-y-4" onSubmit={event => formAction(event, form => api.send("/company/storefront-content", { heading: form.get("heading"), introduction: form.get("introduction"), collection_heading: form.get("collection_heading") }, "PUT"), "Storefront content updated")}>
-                  <Field label="Shop heading"><input required name="heading" minLength={2} maxLength={120} defaultValue={company.storefront_content?.heading || "Shop by category"} className="online-input" /></Field>
-                  <Field label="Shop introduction"><textarea name="introduction" rows={3} maxLength={500} defaultValue={company.storefront_content?.introduction || ""} className="online-input" /></Field>
-                  <Field label="Collection page heading"><input required name="collection_heading" minLength={2} maxLength={120} defaultValue={company.storefront_content?.collection_heading || "Collection locations"} className="online-input" /></Field>
-                  <button disabled={busy} className="honor-button">Save content</button>
-                </form>
+                <h2 className="text-sm font-semibold">Online store</h2>
+                <p className="mt-3 text-xs leading-6 text-zinc-500">Update the wording customers see and review the products on your website.</p>
+                <button type="button" onClick={() => go("Online store")} className="online-secondary mt-4">Manage online store</button>
               </section>
               <section className="online-panel p-6">
                 <h2 className="text-sm font-semibold">Notifications and payment processing</h2>
