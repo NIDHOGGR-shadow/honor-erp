@@ -65,6 +65,8 @@ export default function Storefront({
   const [loading, setLoading] = useState(!initial && configured);
   const [catalogueError, setCatalogueError] = useState("");
   const [catalogueMissing, setCatalogueMissing] = useState(!configured);
+  const [catalogueFailure, setCatalogueFailure] = useState<"not-configured" | "not-found" | "unreachable" | null>(configured ? null : "not-configured");
+  const connectionRetries = useRef(0);
   const profileGeneration = useRef(0);
   const [cart, setCart] = useState<Cart>({});
   const [addedProductId, setAddedProductId] = useState("");
@@ -107,15 +109,33 @@ export default function Storefront({
     try {
       setCatalogue(await api.catalogue());
       setCatalogueMissing(false);
+      setCatalogueFailure(null);
+      connectionRetries.current = 0;
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
         setCatalogue(undefined);
         setCatalogueMissing(true);
-      } else setCatalogueError("The collection could not be loaded. Please try again in a moment.");
+        setCatalogueFailure("not-found");
+      } else {
+        setCatalogueFailure("unreachable");
+        setCatalogueError("We couldn't connect to the HONOR product catalogue. Check your connection or try again.");
+      }
     } finally {
       setLoading(false);
     }
   }, [api, configured, preview]);
+  // A free-tier backend can take time to wake. Retry interrupted requests
+  // briefly, without inventing products, payment confirmations or inventory.
+  useEffect(() => {
+    if (!configured || preview || !catalogueError || connectionRetries.current >= 2) return;
+    const retry = window.setTimeout(() => {
+      if (document.visibilityState === "visible") {
+        connectionRetries.current += 1;
+        void loadCatalogue();
+      }
+    }, 12000);
+    return () => window.clearTimeout(retry);
+  }, [configured, preview, catalogueError, loadCatalogue]);
   const loadProfile = useCallback(async () => {
     if (!accountConfigured) return;
     const generation = ++profileGeneration.current;
@@ -665,7 +685,19 @@ export default function Storefront({
           <>
             {!catalogueMissing && !loading && featured.some((p) => p.available > 0) && <StoreHero products={featured} currency={currency} heading={catalogue?.company.storefront_content?.heading} introduction={catalogue?.company.storefront_content?.introduction} href={href} onNavigate={navigate} />}
             <div className="store-page">
-              {catalogueMissing ? <section className="honor-panel p-6 sm:p-10" aria-labelledby="shop-status-title"><p className="honor-eyebrow">HONOR</p><h1 id="shop-status-title" className="mt-4 text-2xl font-semibold sm:text-3xl">The shop is temporarily unavailable</h1><p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">We cannot load current products or stock right now. Please try again later.</p></section> : <>
+              {catalogueMissing ? <section className="honor-panel p-6 sm:p-10" aria-labelledby="shop-status-title">
+                <p className="honor-eyebrow">HONOR</p>
+                <h1 id="shop-status-title" className="mt-4 text-2xl font-semibold sm:text-3xl">The shop is temporarily unavailable</h1>
+                <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">
+                  {catalogueFailure === "not-configured"
+                    ? "The online product catalogue hasn't been connected to this website yet. Staff sign-in may still work separately."
+                    : catalogueFailure === "not-found"
+                      ? "We couldn't find the store catalogue at this address. The store owner may need to confirm the website's shop connection."
+                      : "We cannot load current products or stock right now. Please try again later."}
+                </p>
+                {configured && <button type="button" className="online-secondary mt-5" onClick={() => { connectionRetries.current = 0; void loadCatalogue(); }} disabled={loading}><RefreshCw size={15} /> {loading ? "Connecting…" : "Try loading products again"}</button>}
+                <p className="mt-5 text-xs text-zinc-500">We won't display unverified stock or prices while the catalogue is unavailable.</p>
+              </section> : <>
               <CategoryShortcuts products={products} onBrowse={browse} onLocations={() => navigate("locations")} />
               <section id="catalogue" className="store-catalogue" aria-labelledby="catalogue-title">
                 <div className="store-section-heading"><div><p className="store-kicker">HONOR Nigeria</p><h2 id="catalogue-title">{catalogue?.company.storefront_content?.heading || "Featured products"}</h2></div>{products.length > 0 && <button className="honor-text-button" onClick={() => browse("All", "", "featured", false)}>View all products <ArrowRight size={16} /></button>}</div>
