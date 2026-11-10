@@ -38,7 +38,8 @@ test("public catalogue renders product and price in initial server HTML", () => 
 test("a disconnected shop reports unavailable inventory without a public staff link", () => {
   const html = renderToStaticMarkup(React.createElement(Storefront, { slug: "", configured: false }));
   assert.match(html, /The shop is temporarily unavailable/);
-  assert.match(html, /cannot load current products or stock/);
+  assert.match(html, /online product catalogue hasn.t been connected/);
+  assert.match(html, /unverified stock or prices/);
   assert.doesNotMatch(html, /href="\/workspace"/);
   assert.doesNotMatch(html, /Opening soon|View demo|View pilot|Loading the collection|Search products/);
 });
