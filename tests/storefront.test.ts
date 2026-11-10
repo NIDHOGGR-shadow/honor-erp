@@ -35,11 +35,11 @@ test("public catalogue renders product and price in initial server HTML", () => 
   assert.doesNotMatch(html, /Opening the collection/);
 });
 
-test("a disconnected shop reports unavailable inventory and keeps staff entry", () => {
+test("a disconnected shop reports unavailable inventory without a public staff link", () => {
   const html = renderToStaticMarkup(React.createElement(Storefront, { slug: "", configured: false }));
   assert.match(html, /The shop is temporarily unavailable/);
   assert.match(html, /cannot load current products or stock/);
-  assert.match(html, /href="\/workspace"/);
+  assert.doesNotMatch(html, /href="\/workspace"/);
   assert.doesNotMatch(html, /Opening soon|View demo|View pilot|Loading the collection|Search products/);
 });
 
