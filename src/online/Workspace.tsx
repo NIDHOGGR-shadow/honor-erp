@@ -2211,26 +2211,19 @@ function SignIn({
   }
   return (
     <div className="honor-staff-signin online-app">
-      <section className="honor-signin-intro" aria-label="About the HONOR business workspace">
-        <div className="honor-signin-wordmark">HONOR</div>
-        <div>
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[.15em]">Business workspace</p>
-          <h1>One place for the work behind the store.</h1>
-          <p className="mt-5">Products, inventory, orders and staff—all in one organised workspace.</p>
-        </div>
-        <small>Private access for authorised HONOR staff</small>
-      </section>
-      <section className="honor-staff-entry flex items-center justify-center px-5 py-7 sm:p-12">
-        <div className="honor-auth w-full max-w-sm">
+      <section className="honor-staff-entry" aria-label="HONOR staff sign-in">
+        <div className="honor-auth">
+          <div className="honor-auth-brand" aria-label="HONOR staff workspace">
+            <span className="honor-auth-wordmark">HONOR</span>
+            <span className="honor-auth-brand-separator" aria-hidden="true" />
+            <span className="honor-auth-brand-caption">STAFF WORKSPACE</span>
+          </div>
           {shopUrl && (
             <a href={shopUrl} className="honor-text-button mb-8">
               <ArrowLeft size={15} /> Back to shop
             </a>
           )}
-          <div className="mb-7 lg:hidden"><span className="text-2xl font-extrabold tracking-[.09em]">HONOR</span></div>
-          <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-700">
-            HONOR · TEAM ACCESS
-          </p>
+          <p className="honor-auth-eyebrow">SECURE TEAM ACCESS</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight">
             {mode === "activate"
               ? "Activate your staff access"
@@ -2238,7 +2231,7 @@ function SignIn({
                 ? "Recover your access."
                 : mode === "reset"
                   ? "Choose a new password."
-                  : "Welcome back"}
+                  : "Staff sign-in"}
           </h2>
           <p className="mt-4 text-sm leading-6 text-zinc-500">
             {mode === "activate"
@@ -2247,7 +2240,7 @@ function SignIn({
                 ? "Enter your staff email to receive password recovery instructions."
                 : mode === "reset"
                   ? "Choose a new password for your staff account."
-                  : "Sign in with your work email to manage the store."}
+                  : "Use your assigned staff account to manage HONOR products, orders and inventory."}
           </p>
           <ConnectionNotice />
           {!configured && (
@@ -2374,7 +2367,7 @@ function SignIn({
             )}
             {mode === "login" && inviteToken && <button className="text-emerald-700" onClick={() => { setMode("activate"); setError(""); setMessage(""); }}>Activate assigned account</button>}
           </div>
-          {mode === "login" && <p className="mt-4 text-xs leading-6 text-zinc-500">Need access? Ask your Honor administrator. Staff accounts cannot be created here.</p>}
+          {mode === "login" && <p className="mt-4 text-xs leading-6 text-zinc-500">Need access? Contact your HONOR administrator. Staff accounts are invitation-only.</p>}
         </div>
       </section>
     </div>
