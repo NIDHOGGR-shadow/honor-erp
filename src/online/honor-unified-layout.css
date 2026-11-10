@@ -77,21 +77,58 @@
 .honor-workspace-ui .honor-workspace-inventory-toolbar { padding:14px 18px; border-bottom:1px solid #f1eff1; }
 .honor-workspace-ui .honor-workspace-inventory-toolbar .online-input { min-height:39px; padding:9px 12px; }
 
-/* Consistent low-noise staff sign-in and recovery; existing auth flow remains unchanged. */
-.honor-staff-signin { display:grid; grid-template-columns:minmax(290px,.9fr) minmax(400px,1.1fr); min-height:100svh; background:#fff; color:#29272d; }
-.honor-staff-signin .honor-signin-intro { display:flex; flex-direction:column; justify-content:space-between; padding:clamp(25px,5vw,72px); background:linear-gradient(145deg,#f1f2f4,#e9ecf0); border-right:1px solid #e7e7e8; }
-.honor-staff-signin .honor-signin-wordmark { font-size:26px; font-weight:800; letter-spacing:.09em; }
-.honor-staff-signin .honor-signin-intro h1 { max-width:510px; font-size:clamp(30px,3.5vw,51px); line-height:1.16; letter-spacing:-.055em; font-weight:690; }
-.honor-staff-signin .honor-signin-intro p { max-width:360px; color:#6f7379; font-size:13px; line-height:1.8; }
-.honor-staff-signin .honor-signin-intro small { color:#84858b; font-size:10px; }
-.honor-staff-signin .honor-staff-entry { display:flex; flex-direction:column; justify-content:center; padding:48px clamp(22px,6vw,82px); background:white; }
-.honor-staff-signin .honor-staff-entry .honor-auth { width:100%; max-width:405px; margin:auto; }
-.honor-staff-signin .honor-staff-entry .honor-auth h2 { font-size:32px; letter-spacing:-.05em; line-height:1.2; }
-.honor-staff-signin .honor-staff-entry .honor-auth .online-input { min-height:45px; border-radius:7px; }
-.honor-staff-signin .honor-staff-entry .honor-auth .honor-button { background:#302b32!important; border-radius:7px; min-height:46px; }
-.honor-staff-signin .honor-staff-entry .honor-auth .honor-text-button { font-size:12px; color:#55505a; }
-.honor-staff-signin .honor-staff-entry .honor-auth-links button { font-size:12px; color:#554b57; text-decoration:underline; text-underline-offset:3px; }
-.honor-staff-signin .honor-staff-entry .honor-auth .honor-signin-label { color:#74647a; letter-spacing:.14em; font-size:10px; }
+/* Staff authentication: one focused, responsive form; no half-screen promo panel. */
+.honor-staff-signin {
+  display:flex; align-items:center; justify-content:center;
+  min-height:100svh; padding:48px 20px; box-sizing:border-box;
+  background:#f7f7f8; color:#25232a;
+}
+.honor-staff-signin .honor-staff-entry {
+  display:flex; align-items:center; justify-content:center;
+  width:100%; max-width:540px; padding:0; background:transparent;
+}
+.honor-staff-signin .honor-staff-entry .honor-auth {
+  width:100%; max-width:462px; margin:0; padding:42px 44px 38px;
+  box-sizing:border-box; background:#fff; border:1px solid #e6e3e8;
+  border-radius:14px; box-shadow:0 14px 50px rgb(30 25 33 / 0.045);
+}
+.honor-staff-signin .honor-auth-brand {
+  display:flex; align-items:center; flex-wrap:wrap; gap:12px;
+  margin-bottom:32px;
+}
+.honor-staff-signin .honor-auth-wordmark {
+  color:#242028; font-size:22px; font-weight:800; letter-spacing:.11em;
+}
+.honor-staff-signin .honor-auth-brand-separator {
+  width:1px; height:18px; background:#d8d4db;
+}
+.honor-staff-signin .honor-auth-brand-caption {
+  color:#78727d; font-size:10px; font-weight:700; letter-spacing:.12em;
+}
+.honor-staff-signin .honor-auth-eyebrow {
+  color:#665e6b; font-size:10px; font-weight:700; letter-spacing:.14em;
+}
+.honor-staff-signin .honor-staff-entry .honor-auth h2 {
+  color:#27232a; font-size:30px; line-height:1.2; letter-spacing:-.045em;
+}
+.honor-staff-signin .honor-staff-entry .honor-auth .online-input {
+  min-height:47px; border-radius:7px; border-color:#dad7df; background:#fff;
+}
+.honor-staff-signin .honor-staff-entry .honor-auth .online-input:focus {
+  outline:2px solid #6b606f; outline-offset:2px;
+}
+.honor-staff-signin .honor-staff-entry .honor-auth .honor-button {
+  background:#302b34!important; color:#fff; border-radius:7px; min-height:48px;
+}
+.honor-staff-signin .honor-staff-entry .honor-auth .honor-button:hover {
+  background:#4b4050!important;
+}
+.honor-staff-signin .honor-staff-entry .honor-auth .honor-text-button {
+  font-size:12px; color:#514b56;
+}
+.honor-staff-signin .honor-staff-entry .honor-auth-links button {
+  color:#554b57; font-size:12px; text-decoration:underline; text-underline-offset:3px;
+}
 @media(max-width:1000px){
   .storefront .store-product-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .storefront .store-hero-inner { min-height:345px; gap:20px; }
@@ -103,10 +140,8 @@
   .storefront .store-shortcuts > button { min-height:122px; }
   .storefront .store-hero-inner { grid-template-columns:1fr 1fr; min-height:310px; }
   .storefront .store-hero-image { min-height:215px; }
-  .honor-staff-signin { grid-template-columns:1fr; }
-  .honor-staff-signin .honor-signin-intro { display:none; }
-  .honor-staff-signin .honor-staff-entry { min-height:100svh; padding:40px 23px; background:linear-gradient(160deg,#f7f7f9,#fff); }
-  .honor-staff-signin .honor-staff-entry .honor-auth { max-width:430px; margin:auto; padding:30px; border:1px solid #e7e6e9; border-radius:12px; background:white; box-shadow:0 10px 36px #1a17210a; }
+  .honor-staff-signin { padding:28px 18px; }
+  .honor-staff-signin .honor-staff-entry .honor-auth { max-width:460px; padding:34px 30px; }
 }
 @media(max-width:560px){
   .storefront .store-hero-inner { grid-template-columns:1fr; min-height:unset; padding-block:29px 22px; }
@@ -125,8 +160,9 @@
   .storefront .store-product-view { font-size:10px; }
   .storefront .store-customer-auth { padding:18px 12px 55px; }
   .storefront .store-customer-auth .honor-auth { padding:22px 18px; }
-  .honor-staff-signin .honor-staff-entry { padding:16px; }
-  .honor-staff-signin .honor-staff-entry .honor-auth { padding:22px 19px; }
+  .honor-staff-signin { padding:16px 12px; }
+  .honor-staff-signin .honor-staff-entry .honor-auth { padding:28px 21px; }
+  .honor-staff-signin .honor-auth-brand { margin-bottom:26px; }
 }
 @media(prefers-reduced-motion:reduce){.storefront .store-product-card{transition:none}}
 
