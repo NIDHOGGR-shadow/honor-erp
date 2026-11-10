@@ -261,6 +261,8 @@ export default function Workspace({
   const [location, setLocation] = useState("ALL");
   const [query, setQuery] = useState("");
   const [attentionOnly, setAttentionOnly] = useState(false);
+  const [productView, setProductView] = useState<"all" | "published" | "draft" | "low">("all");
+  const [productCategory, setProductCategory] = useState("All categories");
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -520,6 +522,12 @@ export default function Workspace({
   const shown = data.products.filter((p) =>
     productSearchText(p).includes(query.toLowerCase()),
   );
+  const catalogueProducts = shown.filter(p =>
+    (productView === "all" || (productView === "published" && p.published) ||
+      (productView === "draft" && !p.published) ||
+      (productView === "low" && productBalance(p.id).available <= p.reorder_point)) &&
+    (productCategory === "All categories" || p.category === productCategory),
+  );
   const productName = (id: string) =>
     data.products.find((p) => p.id === id)?.name || "Product";
   const locationName = (id: string) =>
@@ -649,7 +657,7 @@ export default function Workspace({
                   className={`flex min-h-10 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-xs ${page === p.label ? "bg-white/10 text-white" : "text-emerald-100/55 hover:bg-white/5 hover:text-white"}`}
                 >
                   <p.icon size={17} strokeWidth={1.6} />
-                  {p.label === "Inventory" ? "Products" : p.label}
+                  {p.label === "Inventory" ? "Products" : p.label === "Receive stock" ? "Add stock" : p.label === "People & access" ? "Staff access" : p.label}
                   {p.label === "Orders" &&
                     orders.some((o) => o.status === "PAID") && (
                       <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -1037,33 +1045,40 @@ export default function Workspace({
             </>
           )}
           {page === "Inventory" && (
-            <section className="online-panel">
-              <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6">
-                <span className="text-xs font-medium">
-                  {data.products.length} products
-                </span>
-                <label className="flex min-h-11 min-w-0 max-w-full items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2">
-                  <Search size={14} className="text-zinc-400" />
+            <section className="online-panel overflow-hidden">
+              <nav aria-label="Product views" className="honor-workspace-filter-tabs">
+                {([
+                  ["all", "All products"],
+                  ["published", "Published"],
+                  ["draft", "Drafts"],
+                  ["low", "Low stock"],
+                ] as const).map(([value, label]) => (
+                  <button key={value} type="button" aria-pressed={productView === value}
+                    onClick={() => setProductView(value)}>{label}</button>
+                ))}
+              </nav>
+              <div className="honor-workspace-inventory-toolbar flex flex-wrap items-center gap-3">
+                <label className="flex min-h-10 min-w-[150px] flex-1 items-center gap-2 rounded-md border border-zinc-200 px-3">
+                  <Search size={15} className="shrink-0 text-zinc-400" />
                   <input
-                    aria-label="Search inventory"
-                    placeholder="Search name or SKU"
+                    aria-label="Search products"
+                    placeholder="Search product or SKU"
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="min-w-0 w-full bg-transparent text-base sm:text-sm"
+                    onChange={(event) => setQuery(event.target.value)}
+                    className="min-h-10 min-w-0 flex-1 bg-transparent text-xs outline-none"
                   />
                 </label>
-                {privileged && <button className="text-xs font-semibold text-zinc-700" onClick={() => setModal({ kind: "library" })}>Choose HONOR device</button>}
-                {privileged && (
-                  <button
-                    className="text-xs text-emerald-700"
-                    onClick={() => setModal({ kind: "adjustment" })}
-                  >
-                    Record an adjustment
-                  </button>
-                )}
+                <select aria-label="Product category" value={productCategory} onChange={(event) => setProductCategory(event.target.value)}
+                  className="min-h-10 max-w-[170px] rounded-md border border-zinc-200 bg-white px-2 text-xs">
+                  <option>All categories</option>
+                  {[...new Set(data.products.map(p => p.category))].sort().map(name => <option key={name}>{name}</option>)}
+                </select>
+                {privileged && <button type="button" className="online-secondary min-h-10 text-xs"
+                  onClick={() => setModal({ kind: "library" })}>Choose HONOR device</button>}
+                <span className="text-[11px] text-zinc-500" role="status">{catalogueProducts.length} products</span>
               </div>
               {stockStaff && <SerialLookup key={company.id} api={api} />}
-              {inventoryTable(shown)}
+              {inventoryTable(catalogueProducts)}
             </section>
           )}
           {page === "Receive stock" &&
