@@ -49,8 +49,10 @@ import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
 import PasswordSetup from "./PasswordSetup";
 import { ProductForm, PriceForm } from "./CatalogueForms";
+import { HonorDevicePicker } from "./HonorDevicePicker";
+import type { HonorDeviceReference } from "./honorDeviceLibrary";
 import { ProductImage } from "./StorefrontDesign";
-import { availableStockValue, priceMinor, productSearchText, variantLabel } from "./catalogue";
+import { availableStockValue, optionalMoneyMinor, priceForProductDraft, priceMinor, productSearchText, variantLabel } from "./catalogue";
 import {
   blankWorkspace as blank,
   canOpenWorkspacePage,
@@ -265,7 +267,7 @@ export default function Workspace({
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(configured && !recoveryToken);
   const [mobile, setMobile] = useState(false);
-  const [modal, setModal] = useState<{ kind: string; record?: any } | null>(
+  const [modal, setModal] = useState<{ kind: string; record?: any; suggestion?: HonorDeviceReference } | null>(
     null,
   );
   const [enrolment, setEnrolment] = useState<any>(null);
@@ -733,22 +735,26 @@ export default function Workspace({
             </span>
           </div>
           <div className="flex min-w-0 flex-1 items-center justify-end gap-1 sm:gap-3">
-            <label className="flex min-w-0 max-w-52 flex-1 items-center gap-2 text-xs text-zinc-500">
-              <span className="hidden sm:inline">Location</span>
-              <select
-                aria-label="Stock location"
-                className="min-h-11 min-w-0 w-full truncate rounded-lg border border-zinc-200 bg-white p-2 text-base sm:text-sm"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-              >
-                <option value="ALL">All locations</option>
-                {data.locations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {data.locations.length <= 1 ? (
+              <span className="truncate rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                {data.locations[0]?.name || "Store location not set"}
+              </span>
+            ) : (
+              <label className="flex min-w-0 max-w-52 flex-1 items-center gap-2 text-xs text-zinc-500">
+                <span className="hidden sm:inline">Location</span>
+                <select
+                  aria-label="Stock location"
+                  className="min-h-11 min-w-0 w-full truncate rounded-lg border border-zinc-200 bg-white p-2 text-base sm:text-sm"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                >
+                  <option value="ALL">All locations</option>
+                  {data.locations.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <button
               aria-label="Refresh workspace"
               onClick={() => refresh()}
@@ -1046,6 +1052,7 @@ export default function Workspace({
                     className="min-w-0 w-full bg-transparent text-base sm:text-sm"
                   />
                 </label>
+                {privileged && <button className="text-xs font-semibold text-zinc-700" onClick={() => setModal({ kind: "library" })}>Choose HONOR device</button>}
                 {privileged && (
                   <button
                     className="text-xs text-emerald-700"
@@ -1701,6 +1708,7 @@ export default function Workspace({
               return: "Record an inspected return",
               invite: "Assign staff access",
               member: "Edit company access",
+              library: "Choose a HONOR device",
             }[modal.kind] || "Stock operation"
           }
           onClose={() => !busy && setModal(null)}
@@ -1713,10 +1721,14 @@ export default function Workspace({
               {error}
             </p>
           )}
-          {modal.kind === "price" ? (
+          {modal.kind === "library" ? (
+            <HonorDevicePicker onChoose={suggestion => setModal({ kind: "product", suggestion })} />
+          ) : modal.kind === "price" ? (
             <PriceForm product={modal.record} currency={company.currency} busy={busy} onSubmit={event => formAction(event, form => api.send(`/products/${modal.record.id}/price`, { price_minor: priceMinor(form.get("price")), expected_price_minor: modal.record.price_minor, reason: form.get("reason") }, "PATCH"), "Selling price updated")} />
           ) : modal.kind === "product" ? (
             <ProductForm
+              key={modal.record?.id || modal.suggestion?.id || "new-product"}
+              suggestion={modal.suggestion}
               product={modal.record}
               currency={company.currency}
               busy={busy}
@@ -1739,8 +1751,8 @@ export default function Workspace({
                         market: f.get("market"),
                         source_url: f.get("source_url"),
                         tracking: f.get("tracking"),
-                        price_minor: priceMinor(f.get("price")),
-                        cost_minor: priceMinor(f.get("cost")),
+                        price_minor: priceForProductDraft(f.get("price"), f.get("published") === "on"),
+                        cost_minor: optionalMoneyMinor(f.get("cost")),
                         ...(modal.record ? { expected_price_minor: modal.record.price_minor } : {}),
                         reorder_point: Number(f.get("reorder")),
                         published: f.get("published") === "on",
