@@ -34,7 +34,7 @@
 .honor-workspace-ui .honor-product-thumb .store-photo-unavailable svg{width:15px;height:15px}
 .honor-workspace-ui .honor-mobile-nav{background:#fff}
 @media(min-width:768px){
- .honor-workspace-ui > .md\\:ml-\\[236px\\]{margin-left:208px!important}
+ .honor-workspace-ui > div:last-child{margin-left:208px!important}
 }
 @media(max-width:767px){
  .honor-workspace-ui .honor-workspace-main{padding:16px 12px 82px}
