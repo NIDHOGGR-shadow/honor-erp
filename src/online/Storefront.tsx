@@ -690,7 +690,7 @@ export default function Storefront({
                 <h1 id="shop-status-title" className="mt-4 text-2xl font-semibold sm:text-3xl">The shop is temporarily unavailable</h1>
                 <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">
                   {catalogueFailure === "not-configured"
-                    ? "The online product catalogue hasn't been connected to this website yet. Staff sign-in may still work separately."
+                    ? "The online product catalogue hasn't been connected to this website yet. Please check again soon."
                     : catalogueFailure === "not-found"
                       ? "We couldn't find the store catalogue at this address. The store owner may need to confirm the website's shop connection."
                       : "We cannot load current products or stock right now. Please try again later."}
