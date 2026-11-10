@@ -643,7 +643,7 @@ export default function Storefront({
       <StoreHeader searchKey={`honor:recent-searches:${preview ? "review:" : ""}${slug}`} products={products} view={activeView} category={category} query={query} count={count} signedIn={Boolean(customer)} href={href} onNavigate={navigate} onBrowse={browse} onQuery={setQuery} />
       <main
         id="shop-content"
-        className={`store-main ${activeView === "shop" ? "" : "store-page"}`}
+        className={`store-main ${activeView === "shop" ? "" : "store-page"} ${["login", "signup", "recover"].includes(activeView) ? "store-customer-auth" : ""}`}
       >
         {error && (
           <div
@@ -940,13 +940,13 @@ export default function Storefront({
         {["login", "signup", "recover"].includes(activeView) && (
           <div className="honor-auth mx-auto max-w-md">
             {back}
-            <p className="honor-eyebrow mb-2">Customer account</p>
+            <p className="honor-eyebrow mb-2">HONOR · YOUR ACCOUNT</p>
             <h1 className="text-2xl font-semibold sm:text-3xl">
               {activeView === "signup"
                 ? "Create your account"
                 : activeView === "recover"
                   ? "Reset your password"
-                  : "Welcome back"}
+                  : "Welcome back to HONOR"}
             </h1>
             <p className="mt-3 text-sm leading-6 text-zinc-500">
               {activeView === "recover" ? "Enter your email and we’ll send a password recovery link." : activeView === "signup" ? "Create a customer account to keep your orders and receipts together." : "Sign in to view your orders and receipts."}

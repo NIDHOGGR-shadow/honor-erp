@@ -1,0 +1,131 @@
+/* HONOR unified visual system — actual storefront and private workspace.
+   Design-only: no mock stock, prices, company data or security shortcuts. */
+:root { --honor-ink:#242328; --honor-muted:#77737b; --honor-rule:#e8e7e9; --honor-soft:#f7f7f8; --honor-purple:#4a3c4b; }
+.storefront { color:var(--honor-ink); }
+.storefront .store-header { border-bottom:1px solid #eeecee; background:white; }
+.storefront .store-utility { background:#242328; font-size:10px; letter-spacing:.015em; }
+.storefront .store-nav-row { min-height:69px; gap:28px; }
+.storefront .store-desktop-nav { gap:22px; }
+.storefront .store-desktop-nav a { font-size:12px; padding-block:24px; color:#5b565f; }
+.storefront .store-desktop-nav a[aria-current] { color:#1b1a1d; font-weight:700; }
+.storefront .store-logo img { width:108px; height:26px; }
+.storefront .store-logo .store-wordmark { font-size:24px; line-height:1; letter-spacing:.09em; color:#17171a; font-weight:850; }
+.storefront .store-page { width:min(1290px, calc(100% - 72px)); padding-block:36px 68px; }
+.storefront .store-hero { background:linear-gradient(122deg,#e9eff5 0%,#f7f9fb 100%); }
+.storefront .store-hero-inner { min-height:370px; gap:38px; padding-block:28px; grid-template-columns:1fr 1fr; }
+.storefront .store-hero-copy { padding:17px 0; }
+.storefront .store-hero h1 { font-size:clamp(31px,3.8vw,54px); letter-spacing:-.055em; line-height:1.12; }
+.storefront .store-hero-description { font-size:14px; max-width:380px; line-height:1.75; margin-top:15px; }
+.storefront .store-hero-price { font-size:23px; margin:18px 0 17px; }
+.storefront .store-hero-image { width:100%; height:auto; aspect-ratio:8/5; min-height:235px; padding:18px; }
+.storefront .store-hero-image img { filter:drop-shadow(0 18px 21px rgba(0,0,0,.08)); }
+.storefront .store-carousel-controls { padding-bottom:7px; }
+.storefront .store-shortcuts { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; margin:0 0 43px; padding:0; }
+.storefront .store-shortcuts > button { width:100%; max-width:none; min-height:142px; padding:15px 9px; gap:9px; border-radius:11px; background:#f6f6f7; font-size:12px; font-weight:650; text-align:center; }
+.storefront .store-shortcuts > button:hover { background:#eeeef0; text-decoration:none; }
+.storefront .store-shortcuts small { font-size:10px; color:#85818a; font-weight:400; }
+.storefront .store-shortcut-image { width:100%; height:76px; color:#848188; }
+.storefront .store-shortcut-image img { mix-blend-mode:multiply; }
+.storefront .store-section-heading { margin-bottom:19px; }
+.storefront .store-section-heading h2 { font-size:clamp(23px,2.8vw,31px); letter-spacing:-.04em; }
+.storefront .store-filter-tabs { gap:8px; margin-bottom:18px; }
+.storefront .store-filter-tabs button { min-height:36px; padding:8px 14px; font-size:11px; }
+.storefront .store-filters { gap:12px; padding:14px 0; margin-bottom:17px; }
+.storefront .store-filters select, .storefront .store-filters input { font-size:12px; }
+.storefront .store-product-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:15px; }
+.storefront .store-product-card { display:flex; flex-direction:column; gap:0; min-height:unset; padding:0; border:1px solid #eeecef; border-radius:13px; background:white; overflow:hidden; transition:border-color .15s,box-shadow .15s; }
+.storefront .store-product-card:hover { border-color:#d7d4d9; box-shadow:0 8px 24px #2020250b; }
+.storefront .store-card-image { order:0; display:flex; height:auto; width:100%; aspect-ratio:1; align-items:center; justify-content:center; margin:0; padding:22px; background:#f6f6f7; }
+.storefront .store-card-image img { width:100%; height:100%; object-fit:contain; mix-blend-mode:multiply; }
+.storefront .store-product-copy { order:1; padding:16px 17px 5px; flex:1; }
+.storefront .store-product-card h3 { font-size:15px; line-height:1.4; letter-spacing:-.02em; }
+.storefront .store-card-description { margin-top:8px; font-size:11px; -webkit-line-clamp:2; }
+.storefront .store-variant { font-size:11px; }
+.storefront .store-product-flags { font-size:10px; }
+.storefront .store-card-bottom { order:2; grid-column:auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:9px; margin:0 17px 17px; padding-top:13px; border-top:1px solid #eeecef; }
+.storefront .store-card-bottom strong { font-size:14px; line-height:1.4; letter-spacing:-.025em; }
+.storefront .store-product-view { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#40363e; }
+.storefront .store-product-view:hover { text-decoration:underline; }
+.storefront .store-collection-banner { border-radius:10px; }
+.storefront .store-product-image { border-radius:11px; }
+.storefront .store-footer { background:#efeff0; border-top:1px solid #e7e7e8; }
+.storefront .store-photo-unavailable { min-height:70px; font-size:10px; color:#87838a; }
+.storefront .store-customer-auth { display:flex; justify-content:center; align-items:flex-start; width:100%; background:radial-gradient(ellipse at 8% 4%,#eff2f4,transparent 50%),#fafafa; padding:60px 20px 92px; }
+.storefront .store-customer-auth .honor-auth { width:100%; max-width:445px; margin:0; padding:31px 31px 26px; border:1px solid #e8e7ea; border-radius:12px; background:white; box-shadow:0 10px 35px #18151c08; }
+.storefront .store-customer-auth .honor-auth h1 { font-size:31px; letter-spacing:-.05em; }
+.storefront .store-customer-auth .honor-auth .honor-panel { border:0; box-shadow:none; padding:0; margin-top:25px; }
+.storefront .store-customer-auth .honor-auth-links { padding-top:13px; border-top:1px solid #eeebef; font-size:12px; }
+.storefront .store-customer-auth .honor-auth a,.storefront .store-customer-auth .honor-auth button { color:#49404c; }
+.storefront .store-customer-auth .honor-auth .honor-button { color:white; border-radius:7px; min-height:46px; }
+.storefront .store-customer-auth .honor-auth .online-input { border-radius:7px; min-height:45px; }
+
+/* Business workspace matches the storefront's restraint without exposing staff paths publicly. */
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] { background:#f8f8f9!important; color:#5c5860!important; }
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] .honor-workspace-group { margin-top:19px; font-size:9px; }
+.honor-workspace-ui .honor-workspace-main { padding-top:23px!important; }
+.honor-workspace-ui .honor-workspace-main .online-panel { border-radius:7px; }
+.honor-workspace-ui .honor-workspace-main .online-table td { padding:12px 13px; }
+.honor-workspace-ui .honor-workspace-main .online-table th { padding:10px 13px; }
+.honor-workspace-ui .honor-workspace-main .online-table tbody tr:hover { background:#faf9fb; }
+.honor-workspace-ui .honor-workspace-main .honor-button { background:#403742!important; border-color:#403742!important; }
+.honor-workspace-ui .honor-workspace-main .honor-button:hover { background:#29212c!important; }
+.honor-workspace-ui .honor-workspace-main .online-secondary { border-radius:6px; }
+.honor-workspace-ui .honor-workspace-filter-tabs { display:flex; gap:20px; overflow-x:auto; border-bottom:1px solid #e8e6e9; padding:0 18px; }
+.honor-workspace-ui .honor-workspace-filter-tabs button { position:relative; background:none; border:0; padding:12px 0; font-size:11px; white-space:nowrap; color:#777078; }
+.honor-workspace-ui .honor-workspace-filter-tabs button[aria-pressed="true"] { color:#423443; font-weight:700; }
+.honor-workspace-ui .honor-workspace-filter-tabs button[aria-pressed="true"]:after { position:absolute;content:"";left:0;right:0;bottom:0;height:2px;background:#755876; }
+.honor-workspace-ui .honor-workspace-inventory-toolbar { padding:14px 18px; border-bottom:1px solid #f1eff1; }
+.honor-workspace-ui .honor-workspace-inventory-toolbar .online-input { min-height:39px; padding:9px 12px; }
+
+/* Consistent low-noise staff sign-in and recovery; existing auth flow remains unchanged. */
+.honor-staff-signin { display:grid; grid-template-columns:minmax(290px,.9fr) minmax(400px,1.1fr); min-height:100svh; background:#fff; color:#29272d; }
+.honor-staff-signin .honor-signin-intro { display:flex; flex-direction:column; justify-content:space-between; padding:clamp(25px,5vw,72px); background:linear-gradient(145deg,#f1f2f4,#e9ecf0); border-right:1px solid #e7e7e8; }
+.honor-staff-signin .honor-signin-wordmark { font-size:26px; font-weight:800; letter-spacing:.09em; }
+.honor-staff-signin .honor-signin-intro h1 { max-width:510px; font-size:clamp(30px,3.5vw,51px); line-height:1.16; letter-spacing:-.055em; font-weight:690; }
+.honor-staff-signin .honor-signin-intro p { max-width:360px; color:#6f7379; font-size:13px; line-height:1.8; }
+.honor-staff-signin .honor-signin-intro small { color:#84858b; font-size:10px; }
+.honor-staff-signin .honor-staff-entry { display:flex; flex-direction:column; justify-content:center; padding:48px clamp(22px,6vw,82px); background:white; }
+.honor-staff-signin .honor-staff-entry .honor-auth { width:100%; max-width:405px; margin:auto; }
+.honor-staff-signin .honor-staff-entry .honor-auth h2 { font-size:32px; letter-spacing:-.05em; line-height:1.2; }
+.honor-staff-signin .honor-staff-entry .honor-auth .online-input { min-height:45px; border-radius:7px; }
+.honor-staff-signin .honor-staff-entry .honor-auth .honor-button { background:#302b32!important; border-radius:7px; min-height:46px; }
+.honor-staff-signin .honor-staff-entry .honor-auth .honor-text-button { font-size:12px; color:#55505a; }
+.honor-staff-signin .honor-staff-entry .honor-auth-links button { font-size:12px; color:#554b57; text-decoration:underline; text-underline-offset:3px; }
+.honor-staff-signin .honor-staff-entry .honor-auth .honor-signin-label { color:#74647a; letter-spacing:.14em; font-size:10px; }
+@media(max-width:1000px){
+  .storefront .store-product-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .storefront .store-hero-inner { min-height:345px; gap:20px; }
+  .storefront .store-shortcuts { gap:9px; }
+}
+@media(max-width:850px){
+  .storefront .store-page { width:calc(100% - 36px); padding-block:25px 45px; }
+  .storefront .store-shortcuts { grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+  .storefront .store-shortcuts > button { min-height:122px; }
+  .storefront .store-hero-inner { grid-template-columns:1fr 1fr; min-height:310px; }
+  .storefront .store-hero-image { min-height:215px; }
+  .honor-staff-signin { grid-template-columns:1fr; }
+  .honor-staff-signin .honor-signin-intro { display:none; }
+  .honor-staff-signin .honor-staff-entry { min-height:100svh; padding:40px 23px; background:linear-gradient(160deg,#f7f7f9,#fff); }
+  .honor-staff-signin .honor-staff-entry .honor-auth { max-width:430px; margin:auto; padding:30px; border:1px solid #e7e6e9; border-radius:12px; background:white; box-shadow:0 10px 36px #1a17210a; }
+}
+@media(max-width:560px){
+  .storefront .store-hero-inner { grid-template-columns:1fr; min-height:unset; padding-block:29px 22px; }
+  .storefront .store-hero-copy { text-align:left; }
+  .storefront .store-hero h1 { font-size:34px; }
+  .storefront .store-hero-description { font-size:13px; }
+  .storefront .store-hero-image { min-height:185px; aspect-ratio:4/3; padding:14px; }
+  .storefront .store-shortcuts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .storefront .store-product-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+  .storefront .store-card-image { padding:12px; }
+  .storefront .store-product-copy { padding:12px 10px 6px; }
+  .storefront .store-product-card h3 { font-size:12px; }
+  .storefront .store-card-description { display:none; }
+  .storefront .store-card-bottom { margin:0 10px 12px; }
+  .storefront .store-card-bottom strong { font-size:12px; }
+  .storefront .store-product-view { font-size:10px; }
+  .storefront .store-customer-auth { padding:18px 12px 55px; }
+  .storefront .store-customer-auth .honor-auth { padding:22px 18px; }
+  .honor-staff-signin .honor-staff-entry { padding:16px; }
+  .honor-staff-signin .honor-staff-entry .honor-auth { padding:22px 19px; }
+}
+@media(prefers-reduced-motion:reduce){.storefront .store-product-card{transition:none}}

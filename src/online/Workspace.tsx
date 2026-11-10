@@ -261,6 +261,8 @@ export default function Workspace({
   const [location, setLocation] = useState("ALL");
   const [query, setQuery] = useState("");
   const [attentionOnly, setAttentionOnly] = useState(false);
+  const [productView, setProductView] = useState<"all" | "published" | "draft" | "low">("all");
+  const [productCategory, setProductCategory] = useState("All categories");
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -461,7 +463,7 @@ export default function Workspace({
           <ConnectionNotice />
           <h1 className="text-xl font-semibold">Your Honor access</h1>
           <p className="text-sm leading-6 text-zinc-500">
-            Honor accounts are assigned by the business administrator. Accept your invitation below, or ask your administrator to assign your role and locations.
+            Your account needs access from the store owner. Ask them to invite you to the team, or accept your invitation below.
           </p>
           {new URLSearchParams(window.location.search).get("invite") && (
             <button
@@ -519,6 +521,12 @@ export default function Workspace({
   );
   const shown = data.products.filter((p) =>
     productSearchText(p).includes(query.toLowerCase()),
+  );
+  const catalogueProducts = shown.filter(p =>
+    (productView === "all" || (productView === "published" && p.published) ||
+      (productView === "draft" && !p.published) ||
+      (productView === "low" && productBalance(p.id).available <= p.reorder_point)) &&
+    (productCategory === "All categories" || p.category === productCategory),
   );
   const productName = (id: string) =>
     data.products.find((p) => p.id === id)?.name || "Product";
@@ -649,7 +657,7 @@ export default function Workspace({
                   className={`flex min-h-10 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-xs ${page === p.label ? "bg-white/10 text-white" : "text-emerald-100/55 hover:bg-white/5 hover:text-white"}`}
                 >
                   <p.icon size={17} strokeWidth={1.6} />
-                  {p.label === "Inventory" ? "Products" : p.label}
+                  {p.label === "Inventory" ? "Products" : p.label === "Receive stock" ? "Add stock" : p.label === "People & access" ? "Staff access" : p.label}
                   {p.label === "Orders" &&
                     orders.some((o) => o.status === "PAID") && (
                       <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -814,7 +822,7 @@ export default function Workspace({
           )}
           {new URLSearchParams(window.location.search).has("invite") && (
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-emerald-50 p-4 text-xs">
-              <span>You have a company invitation to accept.</span>
+              <span>You have a team invitation.</span>
               <button
                 className="text-emerald-800 underline"
                 disabled={busy}
@@ -1037,33 +1045,40 @@ export default function Workspace({
             </>
           )}
           {page === "Inventory" && (
-            <section className="online-panel">
-              <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6">
-                <span className="text-xs font-medium">
-                  {data.products.length} products
-                </span>
-                <label className="flex min-h-11 min-w-0 max-w-full items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2">
-                  <Search size={14} className="text-zinc-400" />
+            <section className="online-panel overflow-hidden">
+              <nav aria-label="Product views" className="honor-workspace-filter-tabs">
+                {([
+                  ["all", "All products"],
+                  ["published", "Published"],
+                  ["draft", "Drafts"],
+                  ["low", "Low stock"],
+                ] as const).map(([value, label]) => (
+                  <button key={value} type="button" aria-pressed={productView === value}
+                    onClick={() => setProductView(value)}>{label}</button>
+                ))}
+              </nav>
+              <div className="honor-workspace-inventory-toolbar flex flex-wrap items-center gap-3">
+                <label className="flex min-h-10 min-w-[150px] flex-1 items-center gap-2 rounded-md border border-zinc-200 px-3">
+                  <Search size={15} className="shrink-0 text-zinc-400" />
                   <input
-                    aria-label="Search inventory"
-                    placeholder="Search name or SKU"
+                    aria-label="Search products"
+                    placeholder="Search product or SKU"
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    className="min-w-0 w-full bg-transparent text-base sm:text-sm"
+                    onChange={(event) => setQuery(event.target.value)}
+                    className="min-h-10 min-w-0 flex-1 bg-transparent text-xs outline-none"
                   />
                 </label>
-                {privileged && <button className="text-xs font-semibold text-zinc-700" onClick={() => setModal({ kind: "library" })}>Choose HONOR device</button>}
-                {privileged && (
-                  <button
-                    className="text-xs text-emerald-700"
-                    onClick={() => setModal({ kind: "adjustment" })}
-                  >
-                    Record an adjustment
-                  </button>
-                )}
+                <select aria-label="Product category" value={productCategory} onChange={(event) => setProductCategory(event.target.value)}
+                  className="min-h-10 max-w-[170px] rounded-md border border-zinc-200 bg-white px-2 text-xs">
+                  <option>All categories</option>
+                  {[...new Set(data.products.map(p => p.category))].sort().map(name => <option key={name}>{name}</option>)}
+                </select>
+                {privileged && <button type="button" className="online-secondary min-h-10 text-xs"
+                  onClick={() => setModal({ kind: "library" })}>Choose HONOR device</button>}
+                <span className="text-[11px] text-zinc-500" role="status">{catalogueProducts.length} products</span>
               </div>
               {stockStaff && <SerialLookup key={company.id} api={api} />}
-              {inventoryTable(shown)}
+              {inventoryTable(catalogueProducts)}
             </section>
           )}
           {page === "Receive stock" &&
@@ -2163,28 +2178,15 @@ function SignIn({
     });
   }
   return (
-    <div className="online-app grid min-h-screen bg-[#f6f8f5] lg:grid-cols-2">
-      <section className="hidden flex-col justify-between bg-[#132b25] p-16 text-white lg:flex">
-        <Brand />
+    <div className="honor-staff-signin online-app">
+      <section className="honor-signin-intro" aria-label="About the HONOR business workspace">
+        <div className="honor-signin-wordmark">HONOR</div>
         <div>
-          <p className="text-[10px] uppercase tracking-[.2em] text-emerald-200/50">
-            A little more clarity. Every day.
-          </p>
-          <h1 className="mt-6 max-w-lg text-5xl font-medium leading-[1.2] tracking-tight">
-            Your inventory.
-            <br />
-            Every movement.
-            <br />
-            <span className="text-[#a7c7a0]">All in order.</span>
-          </h1>
-          <p className="mt-7 max-w-sm text-sm leading-7 text-emerald-100/50">
-            A shared workspace for the people, products and decisions that keep
-            your business moving.
-          </p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[.15em]">Business workspace</p>
+          <h1>One place for the work behind the store.</h1>
+          <p className="mt-5">Products, inventory, orders and staff—all in one organised workspace.</p>
         </div>
-        <p className="text-[10px] text-emerald-100/35">
-          Company-controlled access · Traceable stock · Connected orders
-        </p>
+        <small>Private access for authorised HONOR staff</small>
       </section>
       <section className="honor-staff-entry flex items-center justify-center px-5 py-7 sm:p-12">
         <div className="honor-auth w-full max-w-sm">
@@ -2193,11 +2195,9 @@ function SignIn({
               <ArrowLeft size={15} /> Back to shop
             </a>
           )}
-          <div className="mb-7 lg:hidden">
-            <Brand />
-          </div>
+          <div className="mb-7 lg:hidden"><span className="text-2xl font-extrabold tracking-[.09em]">HONOR</span></div>
           <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-700">
-            Honor · Staff &amp; administration
+            HONOR · TEAM ACCESS
           </p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight">
             {mode === "activate"
@@ -2206,16 +2206,16 @@ function SignIn({
                 ? "Recover your access."
                 : mode === "reset"
                   ? "Choose a new password."
-                  : "Staff sign-in"}
+                  : "Welcome back"}
           </h2>
           <p className="mt-4 text-sm leading-6 text-zinc-500">
             {mode === "activate"
-              ? "Use the email your administrator invited and choose your private password."
+              ? "Use your invited email and create a private password."
               : mode === "recover"
                 ? "Enter your staff email to receive password recovery instructions."
                 : mode === "reset"
                   ? "Choose a new password for your staff account."
-                  : "Sign in with the account assigned by your Honor administrator."}
+                  : "Sign in with your work email to manage the store."}
           </p>
           <ConnectionNotice />
           {!configured && (

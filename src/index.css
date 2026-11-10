@@ -1,6 +1,7 @@
 @import "tailwindcss" source(none);
 @import "./online/storefront.css";
 @import "./online/honor-workspace-ui.css";
+@import "./online/honor-unified-layout.css";
 @source "./online";
 @source "../apps/storefront/app";
 
