@@ -2353,10 +2353,10 @@ function SignIn({
                   autoComplete={
                     mode === "login" ? "current-password" : "new-password"
                   }
-                  className="online-input pr-12"
+                  className="online-input pr-24"
                 />
-                <button type="button" className="absolute right-2 top-2 p-2" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                <button type="button" className="honor-password-toggle absolute right-1 top-1" aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}<span>{showPassword ? "Hide" : "Show"}</span>
                 </button>
                 </div>
               </Field>
