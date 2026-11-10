@@ -8,8 +8,9 @@ test("unconfigured staff entry renders server-side without browser globals or ac
   const html = renderToStaticMarkup(
     React.createElement(Workspace, { configured: false, shopUrl: "/" }),
   );
-  assert.match(html, /HONOR · TEAM ACCESS/);
-  assert.match(html, /Welcome back/);
+  assert.match(html, /SECURE TEAM ACCESS/);
+  assert.match(html, /Staff sign-in/);
+  assert.doesNotMatch(html, /honor-signin-intro|One place for the work behind the store/);
   assert.match(html, /honor-staff-signin/);
   assert.match(html, /Sign-in is temporarily unavailable/);
   assert.doesNotMatch(html, /<fieldset disabled|Create an account|Create account|Create company workspace/);
