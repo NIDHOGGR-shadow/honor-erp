@@ -28,7 +28,7 @@ export const honorDeviceReferences: readonly HonorDeviceReference[] = [
     "category": "Phones",
     "officialCatalogUrl": "https://www.honor.com/global/phones/",
     "officialProductUrl": "https://www.honor.com/global/phones/honor-magic8-pro/",
-    "imageUrl": ""
+    "imageUrl": "https://www-file.honor.com/content/dam/honor/common/tech/honor-ai-eye-comfort-display/img-bottom/honormagic8pro.png"
   },
   {
     "id": "honor-magic8-lite",
@@ -59,16 +59,16 @@ export const honorDeviceReferences: readonly HonorDeviceReference[] = [
     "name": "HONOR Magic V3",
     "category": "Phones",
     "officialCatalogUrl": "https://www.honor.com/global/phones/",
-    "officialProductUrl": "",
-    "imageUrl": ""
+    "officialProductUrl": "https://www.honor.com/lk/phones/honor-magic-v3/",
+    "imageUrl": "https://www.honor.com/content/dam/honor/lk/product-list/smartphone/honor-magic-v3/honor-magic-v3-list-green.png"
   },
   {
     "id": "honor-magic7-lite",
     "name": "HONOR Magic7 Lite",
     "category": "Phones",
     "officialCatalogUrl": "https://www.honor.com/global/phones/",
-    "officialProductUrl": "",
-    "imageUrl": ""
+    "officialProductUrl": "https://www.honor.com.br/magic-7-lite",
+    "imageUrl": "https://d1rolhgenksxtm.cloudfront.net/Custom/Content/Themes/honor_fg/Imagens/Magic7_Lite_%28Preto%29.png"
   },
   {
     "id": "porsche-design-honor-magic7-rsr",
@@ -91,8 +91,8 @@ export const honorDeviceReferences: readonly HonorDeviceReference[] = [
     "name": "HONOR Magic6 Pro",
     "category": "Phones",
     "officialCatalogUrl": "https://www.honor.com/global/phones/",
-    "officialProductUrl": "",
-    "imageUrl": ""
+    "officialProductUrl": "https://www.honor.com/sa-en/phones/honor-magic6-pro/buy/",
+    "imageUrl": "https://www.honor.com/content/dam/honor/sa-en/product-list/smartphone/honor-magic6-pro/honor-magic6-pro-green.png"
   },
   {
     "id": "porsche-design-honor-magic6-rsr",
@@ -115,8 +115,8 @@ export const honorDeviceReferences: readonly HonorDeviceReference[] = [
     "name": "HONOR Magic6 Lite",
     "category": "Phones",
     "officialCatalogUrl": "https://www.honor.com/global/phones/",
-    "officialProductUrl": "",
-    "imageUrl": ""
+    "officialProductUrl": "https://www.honor.com.br/honor-magic-6",
+    "imageUrl": "https://d1rolhgenksxtm.cloudfront.net/Custom/Content/Themes/honor_fg/Menu/imagens/honor-magic6-lite-green-back.png"
   },
   {
     "id": "honor-600-pro",
@@ -299,8 +299,8 @@ export const honorDeviceReferences: readonly HonorDeviceReference[] = [
     "name": "HONOR X7e Plus",
     "category": "Phones",
     "officialCatalogUrl": "https://www.honor.com/global/phones/",
-    "officialProductUrl": "",
-    "imageUrl": ""
+    "officialProductUrl": "https://www.honor.com/global/phones/honor-x7e-plus/",
+    "imageUrl": "https://www-file.honor.com/content/dam/honor/common/products/smartphone/honor-x7e-plus/img-share.jpg"
   },
   {
     "id": "honor-x7e",
@@ -315,8 +315,8 @@ export const honorDeviceReferences: readonly HonorDeviceReference[] = [
     "name": "HONOR X7d",
     "category": "Phones",
     "officialCatalogUrl": "https://www.honor.com/global/phones/",
-    "officialProductUrl": "",
-    "imageUrl": ""
+    "officialProductUrl": "https://www.honor.com.br/x7d",
+    "imageUrl": "https://d1rolhgenksxtm.cloudfront.net/Custom/Content/Themes/honor_fg/imagens/HONOR_X7d_4G_BRA.png"
   },
   {
     "id": "honor-x6e",
@@ -771,8 +771,8 @@ export const honorDeviceReferences: readonly HonorDeviceReference[] = [
     "name": "HONOR Pad X8a",
     "category": "Tablets",
     "officialCatalogUrl": "https://www.honor.com/global/tablets/",
-    "officialProductUrl": "",
-    "imageUrl": ""
+    "officialProductUrl": "https://www.honor.com.br/pad-x8a-lte",
+    "imageUrl": "https://d1rolhgenksxtm.cloudfront.net/Custom/Content/Themes/honor_fg/imagens/HONOR_PAD_X8a.png"
   },
   {
     "id": "honor-pad-x8a-kids-edition",
