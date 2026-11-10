@@ -9,6 +9,7 @@
 .storefront .store-desktop-nav a { font-size:12px; padding-block:24px; color:#5b565f; }
 .storefront .store-desktop-nav a[aria-current] { color:#1b1a1d; font-weight:700; }
 .storefront .store-logo img { width:108px; height:26px; }
+.storefront .store-logo .store-wordmark { font-size:24px; line-height:1; letter-spacing:.09em; color:#17171a; font-weight:850; }
 .storefront .store-page { width:min(1290px, calc(100% - 72px)); padding-block:36px 68px; }
 .storefront .store-hero { background:linear-gradient(122deg,#e9eff5 0%,#f7f9fb 100%); }
 .storefront .store-hero-inner { min-height:370px; gap:38px; padding-block:28px; grid-template-columns:1fr 1fr; }
