@@ -1,0 +1,43 @@
+/* HONOR business workspace: phase 1, presentation only.
+   All figures and mutations continue to come from the authenticated API. */
+.honor-workspace-ui{background:#fff;color:#29272b}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"]{width:208px!important;background:#f8f8f9!important;color:#514e55!important;border-right:1px solid #e7e6e9;padding:22px 11px!important}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] nav{margin-top:10px}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] nav button{font-size:12px;min-height:36px!important;padding:9px 12px!important;border-radius:6px!important;color:#656169!important;gap:12px!important}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] nav button:hover{background:#eeecef!important;color:#38323b!important}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] nav button[aria-current="page"]{background:#eae6ea!important;color:#49374b!important;font-weight:650}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] nav svg{color:inherit}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] [class*="text-emerald-100"]{color:#847c87!important}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] [class*="border-white"]{border-color:#e4dfe5!important}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] a{color:#5b535f!important;border-color:#dedbdf!important}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] .honor-workspace-group{font-size:10px;letter-spacing:.13em;color:#928a95;font-weight:700;margin:24px 12px 8px}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] .honor-workspace-group:first-child{margin-top:8px}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] .honor-workspace-identity{color:#625b64!important;border-top:1px solid #e4e1e6;padding-top:16px}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] .honor-workspace-identity p{color:#353039!important}
+.honor-workspace-ui aside[aria-label="Staff workspace navigation"] .honor-workspace-identity button{color:#67616a!important}
+.honor-workspace-ui .honor-workspace-main{max-width:1600px;padding-top:26px;background:#fff}
+.honor-workspace-ui .honor-workspace-main h1{color:#302d33;letter-spacing:-.04em;font-weight:700}
+.honor-workspace-ui .honor-workspace-main .online-panel,.honor-workspace-ui .honor-workspace-main .honor-panel{box-shadow:none;border:1px solid #e8e7ea;border-radius:7px}
+.honor-workspace-ui .honor-workspace-main .online-table{width:100%;border-collapse:collapse;font-size:12px}
+.honor-workspace-ui .honor-workspace-main .online-table thead{background:#fafafa}
+.honor-workspace-ui .honor-workspace-main .online-table th{padding:12px 13px;color:#7d7881;font-size:11px;font-weight:600;white-space:nowrap;border-bottom:1px solid #eceaee}
+.honor-workspace-ui .honor-workspace-main .online-table td{padding:13px;border-bottom:1px solid #f0eef1;vertical-align:middle}
+.honor-workspace-ui .honor-workspace-main .online-table tbody tr:hover{background:#faf9fa}
+.honor-workspace-ui .honor-workspace-main .honor-button{background:#39323b!important;border-color:#39323b!important;border-radius:6px;color:#fff}
+.honor-workspace-ui .honor-workspace-main .online-secondary{border-radius:6px}
+.honor-workspace-ui .honor-workspace-main input,.honor-workspace-ui .honor-workspace-main select{border-radius:6px}
+.honor-workspace-ui .honor-workspace-main [class*="rounded-2xl"]{border-radius:8px}
+.honor-workspace-ui header.sticky{min-height:55px;border-color:#e9e7eb;background:#fff}
+.honor-workspace-ui .honor-product-thumb{border-radius:6px!important;width:44px;height:46px;overflow:hidden;background:#f7f7f8!important;color:#827a85!important;border:1px solid #eae7ec}
+.honor-workspace-ui .honor-product-thumb img{max-width:100%;max-height:100%;height:100%;width:100%;object-fit:contain}
+.honor-workspace-ui .honor-product-thumb .store-photo-unavailable{font-size:8px;line-height:1.2;gap:3px;color:#9c94a0}
+.honor-workspace-ui .honor-product-thumb .store-photo-unavailable svg{width:15px;height:15px}
+.honor-workspace-ui .honor-mobile-nav{background:#fff}
+@media(min-width:768px){
+ .honor-workspace-ui > div:last-child{margin-left:208px!important}
+}
+@media(max-width:767px){
+ .honor-workspace-ui .honor-workspace-main{padding:16px 12px 82px}
+ .honor-workspace-ui .honor-workspace-main .online-table th,.honor-workspace-ui .honor-workspace-main .online-table td{padding:11px 10px}
+ .honor-workspace-ui .honor-mobile-nav{border-color:#e8e6e9}
+}

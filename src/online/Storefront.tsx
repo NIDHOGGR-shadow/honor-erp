@@ -31,7 +31,7 @@ import { Field } from "./ui";
 import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
 import { catalogueSelection, productVariants, readShopFilters, variantLabel } from "./catalogue";
-import { AddedToCart, CategoryShortcuts, CollectionBanner, ProductImage, ReferenceCollection, StoreFooter, StoreHeader, StoreHero, StoreProductCard } from "./StorefrontDesign";
+import { AddedToCart, CategoryShortcuts, CollectionBanner, ProductImage, StoreFooter, StoreHeader, StoreHero, StoreProductCard } from "./StorefrontDesign";
 
 type Props = {
   slug: string;
@@ -54,7 +54,6 @@ export default function Storefront({
   slug,
   apiBase = "/api/v1",
   initial,
-  staffUrl = "/workspace",
   initialSearch = "",
   configured = true,
   accountConfigured = configured,
@@ -96,7 +95,7 @@ export default function Storefront({
     (id) => !products.some((p) => p.id === id),
   );
   const invalidCart =
-    missing.length > 0 || items.some((p) => cart[p.id] > p.available);
+    missing.length > 0 || items.some((p) => cart[p.id] > p.available || p.price_minor <= 0);
   const count = Object.values(cart).reduce((a, b) => a + b, 0);
   const total = items.reduce((sum, p) => sum + p.price_minor * cart[p.id], 0);
   const selected = products.find((p) => p.id === route.product);
@@ -664,9 +663,9 @@ export default function Storefront({
         )}
         {activeView === "shop" && (
           <>
-            {!catalogueMissing && <StoreHero products={featured} currency={currency} heading={catalogue?.company.storefront_content?.heading} introduction={catalogue?.company.storefront_content?.introduction} href={href} onNavigate={navigate} />}
+            {!catalogueMissing && !loading && featured.some((p) => p.available > 0) && <StoreHero products={featured} currency={currency} heading={catalogue?.company.storefront_content?.heading} introduction={catalogue?.company.storefront_content?.introduction} href={href} onNavigate={navigate} />}
             <div className="store-page">
-              {catalogueMissing ? <section className="honor-panel p-6 sm:p-10" aria-labelledby="shop-status-title"><p className="honor-eyebrow">HONOR</p><h1 id="shop-status-title" className="mt-4 text-2xl font-semibold sm:text-3xl">The shop is temporarily unavailable</h1><p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">We cannot load current products or stock right now. Please try again later.</p><a href={staffUrl} className="honor-text-button mt-5">Staff sign-in <ArrowRight size={16} /></a></section> : <>
+              {catalogueMissing ? <section className="honor-panel p-6 sm:p-10" aria-labelledby="shop-status-title"><p className="honor-eyebrow">HONOR</p><h1 id="shop-status-title" className="mt-4 text-2xl font-semibold sm:text-3xl">The shop is temporarily unavailable</h1><p className="mt-4 max-w-xl text-sm leading-7 text-zinc-600">We cannot load current products or stock right now. Please try again later.</p></section> : <>
               <CategoryShortcuts products={products} onBrowse={browse} onLocations={() => navigate("locations")} />
               <section id="catalogue" className="store-catalogue" aria-labelledby="catalogue-title">
                 <div className="store-section-heading"><div><p className="store-kicker">HONOR Nigeria</p><h2 id="catalogue-title">{catalogue?.company.storefront_content?.heading || "Featured products"}</h2></div>{products.length > 0 && <button className="honor-text-button" onClick={() => browse("All", "", "featured", false)}>View all products <ArrowRight size={16} /></button>}</div>
@@ -677,7 +676,7 @@ export default function Storefront({
                   <div className="store-filters"><div className="store-filter-search"><Field label="Search products"><input className={input} type="search" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") browse(category, query, sort, inStock, shelf); }} placeholder="Name, model, colour or memory" /></Field></div><Field label="Category"><select aria-label="Category" className={input} value={category} onChange={e => browse(e.target.value, query, sort, inStock, shelf)}>{["All", ...new Set(products.map(p => p.category))].map(c => <option key={c}>{c}</option>)}</select></Field><Field label="Sort by"><select aria-label="Sort by" className={input} value={sort} onChange={e => browse(category, query, e.target.value, inStock, shelf)}><option value="featured">Recommended order</option><option value="name">Name: A–Z</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option></select></Field><label className="store-stock-filter"><input type="checkbox" checked={inStock} onChange={e => browse(category, query, sort, e.target.checked, shelf)} /> In stock only</label></div>
                   <p className="store-result-count" role="status">{shown.length} {shown.length === 1 ? "product" : "products"}{shelf === "trending" ? " · Growing demand over the last 7 days" : shelf === "popular" ? " · Based on verified purchases in the last 7 days" : shelf === "budget" ? " · Lower-priced available choices in each category" : ""}</p>
                 </>}
-                {loading && !catalogue ? <p role="status" className="py-16 text-center text-zinc-500">Loading the collection…</p> : catalogue && !products.length ? <>{empty("No products available right now", "Please check back soon.")}<ReferenceCollection /></> : catalogue && !shown.length ? <>{empty("No matching products", "Try another search or clear your filters.")}<button className="honor-text-button mt-4" onClick={() => browse("All", "", "featured", false)}>Clear filters</button></> : <div className="store-product-grid">{shown.map(p => <StoreProductCard key={p.id} product={p} currency={currency} trending={catalogue?.recommendations?.trending_product_ids.includes(p.id)} popular={catalogue?.recommendations?.popular_product_ids.includes(p.id)} href={href} onNavigate={navigate} />)}</div>}
+                {loading && !catalogue ? <p role="status" className="py-16 text-center text-zinc-500">Loading the collection…</p> : catalogue && !products.length ? empty("No products available right now", "Products and prices will appear after they are published by HONOR.") : catalogue && !shown.length ? <>{empty("No matching products", "Try another search or clear your filters.")}<button className="honor-text-button mt-4" onClick={() => browse("All", "", "featured", false)}>Clear filters</button></> : <div className="store-product-grid">{shown.map(p => <StoreProductCard key={p.id} product={p} currency={currency} trending={catalogue?.recommendations?.trending_product_ids.includes(p.id)} popular={catalogue?.recommendations?.popular_product_ids.includes(p.id)} href={href} onNavigate={navigate} />)}</div>}
               </section>
               </>}
               <CollectionBanner href={href} onNavigate={navigate} />
@@ -707,7 +706,7 @@ export default function Storefront({
                   {productVariants(products, selected).length > 1 && <div className="mt-5"><Field label="Colour and memory"><select aria-label="Colour and memory" className="online-input" value={selected.id} onChange={event => navigate("product", event.target.value)}>{productVariants(products, selected).map(variant => <option key={variant.id} value={variant.id}>{variantLabel(variant)} · {money(variant.price_minor, currency)}{variant.available <= 0 ? " · Out of stock" : ""}</option>)}</select></Field></div>}
                   {(selected.colour || selected.memory || selected.market) && <p className="mt-4 text-sm text-zinc-500">{variantLabel(selected)}</p>}
                   <p className="mt-7 text-3xl font-semibold">
-                    {money(selected.price_minor, currency)}
+                    {selected.price_minor > 0 ? money(selected.price_minor, currency) : "Price to be added"}
                   </p>
                   <p className="mt-5 whitespace-pre-line text-sm leading-7 text-zinc-600">
                     {selected.description}
@@ -728,7 +727,7 @@ export default function Storefront({
                       )
                     ) : (
                       <button
-                        disabled={selected.available <= 0}
+                        disabled={selected.available <= 0 || selected.price_minor <= 0}
                         className="honor-button"
                         onClick={() => { if (updateCart(selected.id, 1)) setAddedProductId(selected.id); }}
                       >
@@ -797,7 +796,7 @@ export default function Storefront({
                         <h2 className="font-semibold">{p.name}</h2>
                         <p className="mt-1 text-xs text-zinc-500">{preview ? variantLabel(p, false) : p.sku}</p>
                         <p className="mt-3 text-sm">
-                          {money(p.price_minor, currency)} each
+                          {p.price_minor > 0 ? money(p.price_minor, currency) : "Price to be added"} each
                         </p>
                         {cart[p.id] > p.available && (
                           <p className="mt-2 text-sm text-amber-900">
@@ -864,7 +863,7 @@ export default function Storefront({
                   <h2 className="text-lg font-semibold">Order summary</h2>
                   <div className="flex justify-between text-sm">
                     <span>Items ({count})</span>
-                    <span>{money(total, currency)}</span>
+                    <span>{items.some((p) => p.price_minor <= 0) ? "Pending prices" : money(total, currency)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Fulfilment</span>
@@ -872,7 +871,7 @@ export default function Storefront({
                   </div>
                   <div className="flex justify-between border-t border-zinc-200 pt-5 font-semibold">
                     <span>Estimated total</span>
-                    <span>{money(total, currency)}</span>
+                    <span>{items.some((p) => p.price_minor <= 0) ? "Pending prices" : money(total, currency)}</span>
                   </div>
                   <p className="text-sm leading-6 text-zinc-500">
                     Final prices and stock are confirmed by the store when your
@@ -1045,7 +1044,6 @@ export default function Storefront({
               )}
               {activeView !== "recover" && nav("recover", "Forgot password?")}
             </div>
-            <div className="mt-5 border-t border-zinc-200 pt-4 text-xs text-zinc-500">Honor staff or admin? <a href={staffUrl} className="honor-text-button">Open staff workspace <ArrowRight size={15} /></a></div>
           </div>
         )}
         {activeView === "account" && (
@@ -1257,7 +1255,7 @@ export default function Storefront({
         )}
       </main>
       {addedProduct && cart[addedProductId] > 0 && <AddedToCart product={addedProduct} quantity={cart[addedProductId]} currency={currency} onClose={() => setAddedProductId("")} onViewCart={() => { setAddedProductId(""); navigate("cart"); }} />}
-      <StoreFooter companyName={catalogue?.company.name} staffUrl={staffUrl} products={products} currency={currency} signedIn={Boolean(customer)} href={href} onNavigate={navigate} onBrowse={browse} />
+      <StoreFooter companyName={catalogue?.company.name} products={products} currency={currency} signedIn={Boolean(customer)} href={href} onNavigate={navigate} onBrowse={browse} />
     </div>
   );
 }
