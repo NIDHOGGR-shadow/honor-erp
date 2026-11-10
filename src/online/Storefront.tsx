@@ -1044,7 +1044,6 @@ export default function Storefront({
               )}
               {activeView !== "recover" && nav("recover", "Forgot password?")}
             </div>
-            <div className="mt-5 border-t border-zinc-200 pt-4 text-xs text-zinc-500">Honor staff or admin? <a href={staffUrl} className="honor-text-button">Open staff workspace <ArrowRight size={15} /></a></div>
           </div>
         )}
         {activeView === "account" && (
