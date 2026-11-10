@@ -50,7 +50,6 @@ import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connect
 import PasswordSetup from "./PasswordSetup";
 import { ProductForm, PriceForm } from "./CatalogueForms";
 import { ProductImage } from "./StorefrontDesign";
-import "./honor-workspace-ui.css";
 import { availableStockValue, priceMinor, productSearchText, variantLabel } from "./catalogue";
 import {
   blankWorkspace as blank,
