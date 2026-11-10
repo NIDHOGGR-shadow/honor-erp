@@ -3,18 +3,9 @@ import { Boxes, X } from "lucide-react";
 
 export function Brand({ small = false }: { small?: boolean }) {
   return (
-    <span className="flex items-center gap-3">
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
-        <Boxes size={21} />
-      </span>
-      <span className="text-xl font-semibold tracking-tight">
-        Honor
-        {!small && (
-          <span className="mt-0.5 block text-[10px] font-normal uppercase tracking-[.2em] opacity-50">
-            Inventory, in order
-          </span>
-        )}
-      </span>
+    <span className="honor-business-wordmark inline-flex flex-col items-start">
+      <span className="text-[23px] font-extrabold tracking-[.09em] text-zinc-900">HONOR</span>
+      {!small && <span className="mt-1 text-[10px] font-normal tracking-[.05em] text-zinc-500">Business workspace</span>}
     </span>
   );
 }
