@@ -814,7 +814,7 @@ export default function Workspace({
           )}
           {new URLSearchParams(window.location.search).has("invite") && (
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-emerald-50 p-4 text-xs">
-              <span>You have a company invitation to accept.</span>
+              <span>You have a team invitation.</span>
               <button
                 className="text-emerald-800 underline"
                 disabled={busy}
@@ -2163,28 +2163,15 @@ function SignIn({
     });
   }
   return (
-    <div className="online-app grid min-h-screen bg-[#f6f8f5] lg:grid-cols-2">
-      <section className="hidden flex-col justify-between bg-[#132b25] p-16 text-white lg:flex">
-        <Brand />
+    <div className="honor-staff-signin online-app">
+      <section className="honor-signin-intro" aria-label="About the HONOR business workspace">
+        <div className="honor-signin-wordmark">HONOR</div>
         <div>
-          <p className="text-[10px] uppercase tracking-[.2em] text-emerald-200/50">
-            A little more clarity. Every day.
-          </p>
-          <h1 className="mt-6 max-w-lg text-5xl font-medium leading-[1.2] tracking-tight">
-            Your inventory.
-            <br />
-            Every movement.
-            <br />
-            <span className="text-[#a7c7a0]">All in order.</span>
-          </h1>
-          <p className="mt-7 max-w-sm text-sm leading-7 text-emerald-100/50">
-            A shared workspace for the people, products and decisions that keep
-            your business moving.
-          </p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[.15em]">Business workspace</p>
+          <h1>One place for the work behind the store.</h1>
+          <p className="mt-5">Products, inventory, orders and staff—all in one organised workspace.</p>
         </div>
-        <p className="text-[10px] text-emerald-100/35">
-          Company-controlled access · Traceable stock · Connected orders
-        </p>
+        <small>Private access for authorised HONOR staff</small>
       </section>
       <section className="honor-staff-entry flex items-center justify-center px-5 py-7 sm:p-12">
         <div className="honor-auth w-full max-w-sm">
@@ -2197,7 +2184,7 @@ function SignIn({
             <Brand />
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-700">
-            Honor · Staff &amp; administration
+            HONOR · TEAM ACCESS
           </p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight">
             {mode === "activate"
@@ -2206,16 +2193,16 @@ function SignIn({
                 ? "Recover your access."
                 : mode === "reset"
                   ? "Choose a new password."
-                  : "Staff sign-in"}
+                  : "Welcome back"}
           </h2>
           <p className="mt-4 text-sm leading-6 text-zinc-500">
             {mode === "activate"
-              ? "Use the email your administrator invited and choose your private password."
+              ? "Use your invited email and create a private password."
               : mode === "recover"
                 ? "Enter your staff email to receive password recovery instructions."
                 : mode === "reset"
                   ? "Choose a new password for your staff account."
-                  : "Sign in with the account assigned by your Honor administrator."}
+                  : "Sign in with your work email to manage the store."}
           </p>
           <ConnectionNotice />
           {!configured && (
