@@ -198,3 +198,164 @@
 .honor-store-settings-banner.mobile{aspect-ratio:4/5;max-width:145px;margin-inline:auto}
 @media(max-width:1050px){.honor-reports-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.honor-reports-metrics>div:nth-child(3){border-right:0}.honor-store-settings-columns{grid-template-columns:1fr}}
 @media(max-width:680px){.honor-reports-metrics,.honor-store-settings-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.honor-reports-metrics>div,.honor-store-settings-metrics>div{border-right:1px solid #ebe9ed;border-bottom:1px solid #ebe9ed}.honor-reports-metrics>div:nth-child(2n),.honor-store-settings-metrics>div:nth-child(2n){border-right:0}.honor-reports-summary{align-items:flex-start;flex-direction:column}.honor-store-settings-header{align-items:flex-start;flex-direction:column}.honor-reports-section-title{align-items:flex-start}}
+
+/* HONOR mobile drawer and centered navigation — approved design refinement.
+   Preserve the working backend, customer checkout and owner permissions. */
+@media(min-width:851px) {
+  .storefront .store-nav-row {
+    display:grid;
+    grid-template-columns:minmax(95px,1fr) auto minmax(125px,1fr);
+    align-items:center;
+    gap:clamp(10px,1.4vw,22px);
+  }
+  .storefront .store-logo { justify-self:start; }
+  .storefront .store-desktop-nav {
+    flex:unset;
+    justify-content:center;
+    gap:clamp(11px,1.15vw,21px);
+  }
+  .storefront .store-desktop-nav a { font-size:clamp(10px,.85vw,12px); }
+  .storefront .store-header-actions { justify-self:end; margin-left:0; }
+}
+.storefront .honor-password-toggle,
+.honor-staff-signin .honor-password-toggle,
+.honor-password-change .honor-password-toggle {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  min-width:68px;
+  min-height:40px;
+  padding:7px 9px;
+  background:transparent;
+  color:#55505a;
+  border-radius:6px;
+  font-size:11px;
+  font-weight:600;
+  cursor:pointer;
+}
+.storefront .honor-password-toggle:hover,
+.honor-staff-signin .honor-password-toggle:hover,
+.honor-password-change .honor-password-toggle:hover { background:#f2f0f3; color:#302a35; }
+.honor-workspace-ui .honor-mobile-nav {
+  display:grid;
+  align-items:center;
+  text-align:center;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  background:#fff;
+  box-shadow:0 -4px 20px #11101808;
+}
+.honor-workspace-ui .honor-mobile-navigation-tab {
+  color:#79747d;
+  background:transparent;
+  transition:background-color .15s ease,color .15s ease;
+}
+.honor-workspace-ui .honor-mobile-navigation-tab[aria-current="page"] {
+  background:#f0ecf1;
+  color:#433948;
+  font-weight:650;
+}
+.honor-workspace-ui .honor-mobile-navigation-tab:hover { background:#f6f4f7; }
+.honor-mobile-navigation-layer .honor-mobile-navigation-backdrop {
+  display:block;
+  width:100%;
+  height:100%;
+  background:rgba(26,23,31,.35);
+  border:0;
+}
+.honor-mobile-navigation-layer .honor-mobile-navigation-drawer {
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  display:flex;
+  flex-direction:column;
+  width:min(340px,87vw);
+  max-width:100%;
+  overflow:hidden;
+  background:white;
+  box-shadow:18px 0 50px #19172018;
+  border-right:1px solid #e9e7ec;
+}
+.honor-mobile-navigation-layer .honor-mobile-navigation-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  min-height:70px;
+  padding:16px 18px;
+  border-bottom:1px solid #ebe8ed;
+}
+.honor-mobile-navigation-layer .honor-mobile-navigation-header strong {
+  font-size:21px;
+  font-weight:800;
+  letter-spacing:.09em;
+  color:#2b262d;
+}
+.honor-mobile-navigation-layer .honor-mobile-navigation-header button {
+  display:grid;
+  place-items:center;
+  width:42px;
+  height:42px;
+  border-radius:7px;
+  color:#514b56;
+}
+.honor-mobile-navigation-layer .honor-mobile-navigation-header button:hover { background:#f3f1f4; }
+.honor-mobile-navigation-layer .honor-mobile-navigation-content {
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:10px 16px 38px;
+  color:#514b56;
+}
+.honor-mobile-navigation-layer .honor-mobile-navigation-content > div:first-child { display:none; }
+.honor-mobile-navigation-layer .honor-mobile-navigation-content > div:nth-child(2) { display:none; }
+.honor-mobile-navigation-layer .honor-workspace-group {
+  margin:22px 10px 8px;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.11em;
+  color:#958e99;
+}
+.honor-mobile-navigation-layer nav[aria-label="Staff navigation"] { display:block; }
+.honor-mobile-navigation-layer nav[aria-label="Staff navigation"] button {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  min-height:42px;
+  padding:10px 12px;
+  color:#605a65;
+  background:transparent;
+  border-radius:7px;
+  font-size:12px;
+}
+.honor-mobile-navigation-layer nav[aria-label="Staff navigation"] button:hover { background:#f6f4f6; color:#332d36; }
+.honor-mobile-navigation-layer nav[aria-label="Staff navigation"] button[aria-current="page"] {
+  color:#392f3e;
+  background:#ece8ee;
+  font-weight:700;
+}
+.honor-mobile-navigation-layer .honor-workspace-identity {
+  margin-top:18px;
+  padding:15px 8px;
+  border-top:1px solid #e7e3e9;
+  border-radius:0;
+}
+.honor-mobile-navigation-layer .honor-workspace-identity button { color:#615965; }
+.honor-mobile-navigation-layer .honor-mobile-navigation-content > a {
+  display:flex;
+  gap:9px;
+  align-items:center;
+  min-height:42px;
+  padding:11px 12px;
+  margin-top:22px;
+  border:1px solid #e5e1e7;
+  border-radius:7px;
+  color:#55505b;
+  font-size:12px;
+}
+@media(max-width:767px){
+  .honor-workspace-ui .honor-workspace-main { padding-bottom:calc(92px + env(safe-area-inset-bottom,0px)) !important; }
+}
+@media(prefers-reduced-motion:reduce){.honor-workspace-ui .honor-mobile-navigation-tab{transition:none}}
