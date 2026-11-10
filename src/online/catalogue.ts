@@ -60,6 +60,21 @@ export function priceMinor(value: FormDataEntryValue | null) {
   return amount;
 }
 
+// The product library contains models, not selling prices. Empty pricing may
+// be saved only for unpublished drafts; no zero-price retail checkout is allowed.
+export function priceForProductDraft(value: FormDataEntryValue | null, published: boolean) {
+  const raw = String(value ?? "").trim();
+  const amount = raw ? priceMinor(raw) : 0;
+  if (published && amount <= 0)
+    throw new Error("Add the selling price before showing this device in the store.");
+  return amount;
+}
+
+export function optionalMoneyMinor(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "").trim();
+  return raw ? priceMinor(raw) : 0;
+}
+
 export function availableStockValue(products: Product[], balances: Balance[]) {
   const prices = new Map(products.map(product => [product.id, product.price_minor]));
   return balances.reduce((total, balance) => total + balance.available * (prices.get(balance.product_id) || 0), 0);
