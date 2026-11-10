@@ -463,7 +463,7 @@ export default function Workspace({
           <ConnectionNotice />
           <h1 className="text-xl font-semibold">Your Honor access</h1>
           <p className="text-sm leading-6 text-zinc-500">
-            Honor accounts are assigned by the business administrator. Accept your invitation below, or ask your administrator to assign your role and locations.
+            Your account needs access from the store owner. Ask them to invite you to the team, or accept your invitation below.
           </p>
           {new URLSearchParams(window.location.search).get("invite") && (
             <button
@@ -2195,9 +2195,7 @@ function SignIn({
               <ArrowLeft size={15} /> Back to shop
             </a>
           )}
-          <div className="mb-7 lg:hidden">
-            <Brand />
-          </div>
+          <div className="mb-7 lg:hidden"><span className="text-2xl font-extrabold tracking-[.09em]">HONOR</span></div>
           <p className="text-[10px] font-semibold uppercase tracking-[.18em] text-emerald-700">
             HONOR · TEAM ACCESS
           </p>
