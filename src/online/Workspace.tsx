@@ -49,6 +49,8 @@ import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
 import PasswordSetup from "./PasswordSetup";
 import { ProductForm, PriceForm } from "./CatalogueForms";
+import { ProductImage } from "./StorefrontDesign";
+import "./honor-workspace-ui.css";
 import { availableStockValue, priceMinor, productSearchText, variantLabel } from "./catalogue";
 import {
   blankWorkspace as blank,
@@ -254,7 +256,7 @@ export default function Workspace({
   const [companyId, setCompanyId] = useState("");
   const [data, setData] = useState<Bundle>(blank);
   const [config, setConfig] = useState<any>(null);
-  const [page, setPage] = useState<Page>("Overview");
+  const [page, setPage] = useState<Page>("Inventory");
   const [location, setLocation] = useState("ALL");
   const [query, setQuery] = useState("");
   const [attentionOnly, setAttentionOnly] = useState(false);
@@ -283,7 +285,7 @@ export default function Workspace({
     setCompanyId("");
     setData(blank);
     setLastSynced(null);
-    setPage("Overview");
+    setPage("Inventory");
     setLocation("ALL");
     setQuery("");
     setModal(null);
@@ -305,7 +307,7 @@ export default function Workspace({
       const selected = next.me.companies.find((c) => c.id === next.companyId);
       const identity = JSON.stringify([next.me.id, next.companyId, selected?.role]);
       if (identity !== accessIdentity.current) {
-        setPage("Overview");
+        setPage("Inventory");
         setLocation("ALL");
         setQuery("");
         setModal(null);
@@ -424,7 +426,7 @@ export default function Workspace({
         api={publicApi}
         refresh={async () => {
           setLoading(true);
-          setPage("Overview");
+          setPage("Inventory");
           setLocation("ALL");
           setQuery("");
           await refresh();
@@ -563,8 +565,8 @@ export default function Workspace({
               <tr key={p.id}>
                 <td>
                   <div className="flex items-center gap-3">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f0f3ee] text-emerald-800">
-                      <Package size={18} strokeWidth={1.5} />
+                    <span className="honor-product-thumb grid h-10 w-10 shrink-0 place-items-center">
+                      {p.image_url ? <ProductImage src={p.image_url} name={p.name} /> : <Package size={18} strokeWidth={1.5} />}
                     </span>
                     <span>
                       <span className="block font-medium text-zinc-800">
@@ -583,7 +585,7 @@ export default function Workspace({
                 <td>{s.on_hand}</td>
                 <td className="text-zinc-400">{s.reserved}</td>
                 <td className="font-semibold">{s.available}</td>
-                <td className="whitespace-nowrap">{money(p.price_minor, company.currency)}</td>
+                <td className="whitespace-nowrap">{p.price_minor > 0 ? money(p.price_minor, company.currency) : "Not priced"}</td>
                 <td>
                   <Badge warning={s.available <= p.reorder_point}>
                     {s.available === 0
@@ -625,26 +627,36 @@ export default function Workspace({
           <Brand />
         </div>
         <div className="mt-10 px-3 text-[9px] uppercase tracking-[.18em] text-emerald-100/35">
-          Your workspace
+          Operations
         </div>
-        <nav aria-label="Staff navigation" className="mt-3 space-y-1">
-          {pages
-            .filter((p) => canOpenWorkspacePage(company.role, p.label))
-            .map((p) => (
-              <button
-                key={p.label}
-                onClick={() => go(p.label)}
-                aria-current={page === p.label ? "page" : undefined}
-                className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-3 text-xs ${page === p.label ? "bg-white/10 text-white" : "text-emerald-100/55 hover:bg-white/5 hover:text-white"}`}
-              >
-                <p.icon size={17} strokeWidth={1.6} />
-                {p.label}
-                {p.label === "Orders" &&
-                  orders.some((o) => o.status === "PAID") && (
-                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  )}
-              </button>
-            ))}
+        <nav aria-label="Staff navigation" className="mt-3">
+          {[
+            { title: "WORKSPACE", entries: ["Inventory", "Overview"] as Page[] },
+            { title: "SALES", entries: ["Orders"] as Page[] },
+            { title: "INVENTORY", entries: ["Receive stock", "Transfers"] as Page[] },
+            { title: "MANAGEMENT", entries: ["Activity", "People & access", "Company", "Security"] as Page[] },
+          ].map((group) => {
+            const visible = pages.filter((p) => group.entries.includes(p.label) && canOpenWorkspacePage(company.role, p.label));
+            if (!visible.length) return null;
+            return <div key={group.title}>
+              <p className="honor-workspace-group">{group.title}</p>
+              {visible.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => go(p.label)}
+                  aria-current={page === p.label ? "page" : undefined}
+                  className={`flex min-h-10 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-xs ${page === p.label ? "bg-white/10 text-white" : "text-emerald-100/55 hover:bg-white/5 hover:text-white"}`}
+                >
+                  <p.icon size={17} strokeWidth={1.6} />
+                  {p.label === "Inventory" ? "Products" : p.label}
+                  {p.label === "Orders" &&
+                    orders.some((o) => o.status === "PAID") && (
+                      <span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    )}
+                </button>
+              ))}
+            </div>;
+          })}
         </nav>
         <a
           href={"/shop/" + company.slug}
@@ -656,7 +668,7 @@ export default function Workspace({
           Open your store
           <ArrowUpRight size={13} className="ml-auto" />
         </a>
-        <div className="mt-7 rounded-xl border border-white/10 p-3">
+        <div className="honor-workspace-identity mt-7 rounded-xl border border-white/10 p-3">
           <p className="text-xs font-medium">{me.name}</p>
           <p className="mt-1 text-[10px] text-emerald-100/40">
             {company.role.toLowerCase()} · company access
@@ -672,7 +684,7 @@ export default function Workspace({
         </div>
   </>);
   return (
-    <div className="online-app min-h-screen bg-[#f7f8fa] text-zinc-900">
+    <div className="honor-workspace-ui online-app min-h-screen bg-white text-zinc-900">
       <ConnectionNotice />
       <aside aria-label="Staff workspace navigation" className="fixed inset-y-0 left-0 z-40 hidden w-[236px] flex-col overflow-y-auto bg-[#132b25] px-4 py-7 text-white md:flex">
         {navigation}
@@ -707,7 +719,7 @@ export default function Workspace({
                 setCompanyId(e.target.value);
                 setData(blank);
                 setLocation("ALL");
-                setPage("Overview");
+                setPage("Inventory");
               }}
             >
               {me.companies.map((c) => (
@@ -829,7 +841,7 @@ export default function Workspace({
                   : "Company workspace"}
               </p>
               <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-[28px]">
-                {page === "Overview" ? "Inventory overview" : page}
+                {page === "Overview" ? "Business overview" : page === "Inventory" ? "Products" : page}
               </h1>
               <p className="mt-3 max-w-2xl text-xs leading-6 text-zinc-500">
                 {
