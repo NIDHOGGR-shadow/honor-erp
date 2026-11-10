@@ -18,6 +18,14 @@ export function HonorOnlineStoreSettings({ company, products, busy, onSubmit, on
       <div><h2>Customer storefront</h2><p>What customers see at HONOR. Your products and stock still come from your actual store records.</p></div>
       <a className="online-secondary" href={`/shop/${encodeURIComponent(company.slug)}`} target="_blank" rel="noreferrer">Open online store ↗</a>
     </div>
+    <section className="mb-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-xs leading-6 text-zinc-600" aria-label="Your store link">
+      <p className="font-semibold text-zinc-800">Your store's direct link</p>
+      <a href={`/shop/${encodeURIComponent(company.slug)}`} target="_blank" rel="noreferrer" className="mt-1 block break-all font-medium underline underline-offset-2">
+        {"/shop/" + company.slug} ↗
+      </a>
+      <p className="mt-2">If the main website says the shop is unavailable but this direct link opens, the website's home shop address needs reconnecting. Ask the person managing the website to link it to this store.</p>
+      {!products.length && <p className="mt-2">Your product list is currently empty. Add real devices as drafts, confirm pictures and prices, then publish only the products you actually sell.</p>}
+    </section>
     <div className="honor-store-settings-metrics">
       <div><span>Registered products</span><strong>{products.length}</strong></div>
       <div><span>Published products</span><strong>{published.length}</strong></div>
