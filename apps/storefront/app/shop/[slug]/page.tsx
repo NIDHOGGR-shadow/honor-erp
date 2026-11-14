@@ -11,5 +11,5 @@ export default async function ShopPage({ params, searchParams }: {
   const initialSearch = new URLSearchParams(
     Object.entries(search).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
   ).toString();
-  return <Storefront {...await storefrontProps(slug)} initialSearch={initialSearch} />;
+  return <Storefront basePath={`/shop/${encodeURIComponent(slug)}`} {...await storefrontProps(slug)} initialSearch={initialSearch} />;
 }

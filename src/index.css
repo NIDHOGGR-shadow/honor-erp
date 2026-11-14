@@ -2,6 +2,11 @@
 @import "./online/storefront.css";
 @import "./online/honor-workspace-ui.css";
 @import "./online/honor-unified-layout.css";
+@import "./online/premium/layout.css";
+@import "./online/premium/details.css";
+@import "./online/premium/shopping.css";
+@import "./online/premium/responsive.css";
+@import "./online/premium/production.css";
 @source "./online";
 @source "../apps/storefront/app";
 
