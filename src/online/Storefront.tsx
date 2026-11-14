@@ -30,11 +30,15 @@ import {
 import { Field } from "./ui";
 import { readAuthCallback } from "./authCallback";
 import { ConnectionNotice, SubmissionStatus, useAuthSubmission } from "./connection";
-import { catalogueSelection, productVariants, readShopFilters, variantLabel } from "./catalogue";
-import { AddedToCart, CategoryShortcuts, CollectionBanner, ProductImage, StoreFooter, StoreHeader, StoreHero, StoreProductCard } from "./StorefrontDesign";
+import { catalogueSelection, readShopFilters, variantLabel } from "./catalogue";
+import { StoreStories } from "./StoreStories";
+import { ShoppingProvider, StoreBrandIntro, ExperienceCard, ExperienceVariants, ExperienceTools, ExperienceReasons, ExperienceFooter } from "./StoreExperience";
+import { categoryHref, categoryLabel, pathCategory } from "./storefrontPaths";
+import { AddedToCart, CategoryShortcuts, CollectionBanner, ProductImage, StoreHeader, StoreHero } from "./StorefrontDesign";
 
 type Props = {
   slug: string;
+  basePath?: string;
   apiBase?: string;
   initial?: Catalogue;
   staffUrl?: string;
@@ -52,6 +56,7 @@ const input = "online-input";
 // Reference-based shopping presentation. Inventory and payment state stay API-owned.
 export default function Storefront({
   slug,
+  basePath = "",
   apiBase = "/api/v1",
   initial,
   initialSearch = "",
@@ -268,10 +273,12 @@ export default function Storefront({
     if (sort !== "featured") params.set("sort", sort);
     if (shelf !== "featured") params.set("shelf", shelf);
     if (inStock) params.set("stock", "1");
-    return "?" + params.toString();
+    return basePath + "/?" + params.toString();
   }
   function restoreFilters(search: string) {
     const filters = readShopFilters(search);
+    filters.category = filters.category === "All" && typeof window !== "undefined" ? pathCategory(window.location.pathname) || "All" : filters.category;
+    if (filters.shelf === "budget") filters.shelf = "featured";
     setQuery(filters.query); setCategory(filters.category); setSort(filters.sort); setShelf(filters.shelf); setInStock(filters.inStock);
   }
   function browse(nextCategory = category, nextQuery = query, nextSort = sort, nextStock = inStock, nextShelf = "featured") {
@@ -281,9 +288,9 @@ export default function Storefront({
     if (nextSort !== "featured") params.set("sort", nextSort);
     if (nextStock) params.set("stock", "1");
     if (nextShelf !== "featured") params.set("shelf", nextShelf);
-    window.history.pushState({}, "", "?" + params.toString() + "#catalogue");
+    window.history.pushState({}, "", categoryHref(basePath, nextCategory).split("?")[0] + "?" + params.toString() + (nextCategory === "All" ? "#catalogue" : ""));
     restoreFilters(params.toString()); setAddedProductId(""); setRoute({ view: "shop", product: "" }); setError(""); setNotice("");
-    requestAnimationFrame(() => document.getElementById("catalogue")?.scrollIntoView({ block: "start" }));
+    requestAnimationFrame(() => { if (nextCategory !== "All") window.scrollTo({ top: 0, behavior: "instant" }); else document.getElementById("catalogue")?.scrollIntoView({ block: "start" }); });
   }
   function navigate(view: ShopView, product = "") {
     window.history.pushState({}, "", href(view, product));
@@ -437,7 +444,9 @@ export default function Storefront({
       form.reset();
     }));
   }
-  const shown = catalogueSelection(products, { query, category, sort, shelf, inStock }, catalogue?.recommendations);
+  const effectiveCategory = products.find(p => categoryLabel(p.category) === categoryLabel(category))?.category || category;
+  const selection = catalogueSelection(products, { query, category: effectiveCategory, sort, shelf, inStock }, catalogue?.recommendations);
+  const shown = selection.filter((p, i, all) => all.findIndex(other => (other.model_name || other.name) === (p.model_name || p.name) && other.category === p.category && (other.market || "") === (p.market || "")) === i);
   const featured = catalogueSelection(products, { query: "", category: "All", sort: "featured", shelf: "featured", inStock: true }, catalogue?.recommendations);
   const back = (
     <button className="honor-text-button mb-5" onClick={() => navigate("shop")}>
@@ -651,7 +660,7 @@ export default function Storefront({
 
   const addedProduct = products.find(product => product.id === addedProductId);
   return (
-    <div className="online-app storefront flex min-h-screen flex-col">
+    <ShoppingProvider products={products} currency={currency} slug={slug}><div className="online-app storefront flex min-h-screen flex-col">
       <ConnectionNotice />
       {preview ? <aside className="store-review-note" aria-label="Storefront review">Prices and availability are illustrative. Purchases are disabled.</aside> : catalogue?.simulation && <div className="store-preview-label" role="status">Test checkout · No real purchases</div>}
       <a
@@ -660,7 +669,7 @@ export default function Storefront({
       >
         Skip to content
       </a>
-      <StoreHeader searchKey={`honor:recent-searches:${preview ? "review:" : ""}${slug}`} products={products} view={activeView} category={category} query={query} count={count} signedIn={Boolean(customer)} href={href} onNavigate={navigate} onBrowse={browse} onQuery={setQuery} />
+      <StoreHeader localTools={<ExperienceTools navigate={navigate} href={href} />} searchKey={`honor:recent-searches:${preview ? "review:" : ""}${slug}`} products={products} view={activeView} category={category} query={query} count={count} signedIn={Boolean(customer)} href={href} onNavigate={navigate} onBrowse={browse} onQuery={setQuery} />
       <main
         id="shop-content"
         className={`store-main ${activeView === "shop" ? "" : "store-page"} ${["login", "signup", "recover"].includes(activeView) ? "store-customer-auth" : ""}`}
@@ -683,7 +692,8 @@ export default function Storefront({
         )}
         {activeView === "shop" && (
           <>
-            {!catalogueMissing && !loading && featured.some((p) => p.available > 0) && <StoreHero products={featured} currency={currency} heading={catalogue?.company.storefront_content?.heading} introduction={catalogue?.company.storefront_content?.introduction} href={href} onNavigate={navigate} />}
+            {category === "All" && !catalogueMissing && !loading && featured.some((p) => p.available > 0) && <StoreHero products={featured} currency={currency} heading={catalogue?.company.storefront_content?.heading} introduction={catalogue?.company.storefront_content?.introduction} href={href} onNavigate={navigate} />}
+            {!catalogueMissing && !loading && products.length === 0 && <StoreBrandIntro browse={browse} />}
             <div className="store-page">
               {catalogueMissing ? <section className="honor-panel p-6 sm:p-10" aria-labelledby="shop-status-title">
                 <p className="honor-eyebrow">HONOR</p>
@@ -699,18 +709,20 @@ export default function Storefront({
                 <p className="mt-5 text-xs text-zinc-500">We won't display unverified stock or prices while the catalogue is unavailable.</p>
               </section> : <>
               <CategoryShortcuts products={products} onBrowse={browse} onLocations={() => navigate("locations")} />
+              {category === "All" && !query && <StoreStories products={products} onNavigate={navigate} />}
               <section id="catalogue" className="store-catalogue" aria-labelledby="catalogue-title">
-                <div className="store-section-heading"><div><p className="store-kicker">HONOR Nigeria</p><h2 id="catalogue-title">{catalogue?.company.storefront_content?.heading || "Featured products"}</h2></div>{products.length > 0 && <button className="honor-text-button" onClick={() => browse("All", "", "featured", false)}>View all products <ArrowRight size={16} /></button>}</div>
+                <div className="store-section-heading"><div><p className="store-kicker">HONOR Nigeria</p>{category === "All" ? <h2 id="catalogue-title">{catalogue?.company.storefront_content?.heading || "Find your HONOR"}</h2> : <h1 id="catalogue-title">{categoryLabel(category)}</h1>}</div>{products.length > 0 && <button className="honor-text-button" onClick={() => browse("All", "", "featured", false)}>View all products <ArrowRight size={16} /></button>}</div>
                 {catalogue?.company.storefront_content?.introduction && <p className="store-reference-explainer">{catalogue.company.storefront_content.introduction}</p>}
                 {catalogueError && <div role="alert" className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm"><p>{catalogueError}</p><button className="honor-text-button mt-2" onClick={loadCatalogue}><RefreshCw size={15} /> Try again</button></div>}
                 {products.length > 0 && <>
-                  <div className="store-filter-tabs" aria-label="Product collections">{[["featured", "All products"], ...(catalogue?.recommendations?.trending_product_ids.length ? [["trending", "Selling fast"]] : []), ...(catalogue?.recommendations?.popular_product_ids.length ? [["popular", "Popular this week"]] : []), ["budget", "Budget picks"]].map(([value, label]) => <button key={value} aria-pressed={shelf === value} onClick={() => browse(category, query, "featured", inStock, value)}>{label}</button>)}</div>
-                  <div className="store-filters"><div className="store-filter-search"><Field label="Search products"><input className={input} type="search" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") browse(category, query, sort, inStock, shelf); }} placeholder="Name, model, colour or memory" /></Field></div><Field label="Category"><select aria-label="Category" className={input} value={category} onChange={e => browse(e.target.value, query, sort, inStock, shelf)}>{["All", ...new Set(products.map(p => p.category))].map(c => <option key={c}>{c}</option>)}</select></Field><Field label="Sort by"><select aria-label="Sort by" className={input} value={sort} onChange={e => browse(category, query, e.target.value, inStock, shelf)}><option value="featured">Recommended order</option><option value="name">Name: A–Z</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option></select></Field><label className="store-stock-filter"><input type="checkbox" checked={inStock} onChange={e => browse(category, query, sort, e.target.checked, shelf)} /> In stock only</label></div>
+                  <div className="store-filter-tabs" aria-label="Product collections">{[["featured", "All products"], ...(catalogue?.recommendations?.trending_product_ids.length ? [["trending", "Selling fast"]] : []), ...(catalogue?.recommendations?.popular_product_ids.length ? [["popular", "Popular this week"]] : [])].map(([value, label]) => <button key={value} aria-pressed={shelf === value} onClick={() => browse(category, query, "featured", inStock, value)}>{label}</button>)}</div>
+                  <div className="store-filters"><div className="store-filter-search"><Field label="Search products"><input className={input} type="search" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") browse(category, query, sort, inStock, shelf); }} placeholder="Name, model, colour or memory" /></Field></div><Field label="Category"><select aria-label="Category" className={input} value={effectiveCategory} onChange={e => browse(e.target.value, query, sort, inStock, shelf)}>{["All", ...new Set(products.map(p => p.category))].map(c => <option key={c}>{c}</option>)}</select></Field><Field label="Sort by"><select aria-label="Sort by" className={input} value={sort} onChange={e => browse(category, query, e.target.value, inStock, shelf)}><option value="featured">Recommended order</option><option value="name">Name: A–Z</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option></select></Field><label className="store-stock-filter"><input type="checkbox" checked={inStock} onChange={e => browse(category, query, sort, e.target.checked, shelf)} /> In stock only</label></div>
                   <p className="store-result-count" role="status">{shown.length} {shown.length === 1 ? "product" : "products"}{shelf === "trending" ? " · Growing demand over the last 7 days" : shelf === "popular" ? " · Based on verified purchases in the last 7 days" : shelf === "budget" ? " · Lower-priced available choices in each category" : ""}</p>
                 </>}
-                {loading && !catalogue ? <p role="status" className="py-16 text-center text-zinc-500">Loading the collection…</p> : catalogue && !products.length ? empty("No products available right now", "Products and prices will appear after they are published by HONOR.") : catalogue && !shown.length ? <>{empty("No matching products", "Try another search or clear your filters.")}<button className="honor-text-button mt-4" onClick={() => browse("All", "", "featured", false)}>Clear filters</button></> : <div className="store-product-grid">{shown.map(p => <StoreProductCard key={p.id} product={p} currency={currency} trending={catalogue?.recommendations?.trending_product_ids.includes(p.id)} popular={catalogue?.recommendations?.popular_product_ids.includes(p.id)} href={href} onNavigate={navigate} />)}</div>}
+                {loading && !catalogue ? <p role="status" className="py-16 text-center text-zinc-500">Loading the collection…</p> : catalogue && !products.length ? empty("No products available right now", "Products and prices will appear after they are published by HONOR.") : catalogue && !shown.length ? <>{empty("No matching products", "Try another search or clear your filters.")}<button className="honor-text-button mt-4" onClick={() => browse("All", "", "featured", false)}>Clear filters</button></> : <div className="store-product-grid">{shown.map(p => <ExperienceCard key={p.id} product={p} href={href} navigate={navigate} />)}</div>}
               </section>
               </>}
+              <ExperienceReasons />
               <CollectionBanner href={href} onNavigate={navigate} />
             </div>
           </>
@@ -735,7 +747,7 @@ export default function Storefront({
                     {selected.name}
                   </h1>
                   {!preview && <p className="mt-3 font-mono text-xs text-zinc-500">SKU {selected.sku}</p>}
-                  {productVariants(products, selected).length > 1 && <div className="mt-5"><Field label="Colour and memory"><select aria-label="Colour and memory" className="online-input" value={selected.id} onChange={event => navigate("product", event.target.value)}>{productVariants(products, selected).map(variant => <option key={variant.id} value={variant.id}>{variantLabel(variant)} · {money(variant.price_minor, currency)}{variant.available <= 0 ? " · Out of stock" : ""}</option>)}</select></Field></div>}
+                  <ExperienceVariants product={selected} navigate={navigate} />
                   {(selected.colour || selected.memory || selected.market) && <p className="mt-4 text-sm text-zinc-500">{variantLabel(selected)}</p>}
                   <p className="mt-7 text-3xl font-semibold">
                     {selected.price_minor > 0 ? money(selected.price_minor, currency) : "Price to be added"}
@@ -801,6 +813,7 @@ export default function Storefront({
                 >
                   Browse the collection
                 </button>
+                {featured.length > 0 && <section className="experience-cart-suggestions"><h2>A few favourites to explore.</h2><div className="store-product-grid">{featured.slice(0, 3).map(product => <ExperienceCard key={product.id} product={product} navigate={navigate} href={href} />)}</div></section>}
               </>
             ) : (
               <div className="grid items-start gap-8 lg:grid-cols-3">
@@ -1287,7 +1300,7 @@ export default function Storefront({
         )}
       </main>
       {addedProduct && cart[addedProductId] > 0 && <AddedToCart product={addedProduct} quantity={cart[addedProductId]} currency={currency} onClose={() => setAddedProductId("")} onViewCart={() => { setAddedProductId(""); navigate("cart"); }} />}
-      <StoreFooter companyName={catalogue?.company.name} products={products} currency={currency} signedIn={Boolean(customer)} href={href} onNavigate={navigate} onBrowse={browse} />
-    </div>
+      <ExperienceFooter currency={currency} href={href} navigate={navigate} browse={browse} />
+    </div></ShoppingProvider>
   );
 }

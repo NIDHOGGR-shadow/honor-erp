@@ -1,0 +1,7 @@
+/* The approved presentation uses only the live catalogue and account service. */
+.storefront .experience-footer-discover { display: grid; align-content: center; gap: 18px; }
+.storefront .experience-footer-discover a { gap: 16px; font-size: 16px; color: #fff; }
+.storefront .experience-card .store-photo-unavailable { height: 220px; display: grid; align-content: center; justify-items: center; gap: 14px; color: #74767c; }
+.storefront .experience-saved .store-photo-unavailable { width: 80px; font-size: 11px; }
+.storefront .experience-card-bottom small { min-height: 18px; }
+.storefront .store-section-heading h1 { font-size: clamp(29px, 4vw, 38px); font-weight: 500; letter-spacing: -.035em; }

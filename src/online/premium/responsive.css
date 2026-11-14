@@ -1,0 +1,176 @@
+/* HONOR storefront responsiveness: intrinsic sizes and explicit breakpoints. */
+.storefront {
+  --review-gutter: clamp(16px, 3.4vw, 48px);
+}
+.storefront .store-shell,
+.storefront .store-page {
+  width: min(1280px, calc(100% - var(--review-gutter) * 2));
+}
+.storefront .store-nav-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 24px;
+}
+.storefront .store-header-actions { flex-shrink: 0; gap: 0; }
+.storefront .store-header-actions > a,
+.storefront .store-header-actions > button { min-width: 44px; min-height: 44px; }
+.storefront .store-logo { flex-shrink: 0; }
+.storefront .local-direct-nav { min-width: 0; gap: clamp(14px, 1.8vw, 26px); }
+.storefront .local-direct-nav > a { white-space: nowrap; }
+.storefront .store-shortcuts > button { min-width: 0; }
+.storefront .store-filter-tabs button { min-height: 44px; }
+.storefront .store-product-grid { align-items: stretch; }
+.storefront .experience-card { padding: 24px 20px; }
+.storefront .experience-card h3 { line-height: 1.3; overflow-wrap: anywhere; }
+.storefront .experience-card img { height: clamp(180px, 18vw, 240px); }
+.storefront .experience-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.storefront .experience-options button {
+  min-height: 44px;
+  padding: 10px 12px;
+  line-height: 1.4;
+}
+.storefront .experience-options button[aria-pressed=true] { padding: 9px 11px; }
+.storefront .experience-heart { min-width: 44px; min-height: 44px; }
+.storefront .experience-card-bottom .honor-button { min-height: 44px; }
+.storefront .experience-dialog {
+  max-height: calc(100dvh - 32px);
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+.storefront .experience-dialog header { position: sticky; top: -28px; background: white; z-index: 2; padding-block: 6px; }
+.storefront .experience-dialog header button { min-width: 44px; min-height: 44px; flex-shrink: 0; }
+.storefront .experience-dialog header h2 { line-height: 1.2; }
+.storefront .experience-saved > div { min-width: 0; }
+.storefront .experience-saved a,
+.storefront .experience-saved button { display: inline-flex; align-items: center; min-height: 44px; }
+.storefront .experience-faq summary { min-height: 44px; align-content: center; }
+.storefront .experience-faq { padding-block: 10px; }
+.storefront .experience-footer a { display: inline-flex; align-items: center; min-height: 44px; }
+.storefront .experience-footer summary { min-height: 44px; align-content: center; }
+.storefront .experience-footer nav { gap: 2px; margin-top: 12px; }
+.storefront .experience-newsletter form { min-width: 0; }
+.storefront .experience-newsletter button { min-height: 48px; flex-shrink: 0; }
+.storefront .experience-consent { min-height: 44px; }
+.storefront .experience-consent input { width: 20px; height: 20px; flex-shrink: 0; }
+.storefront .experience-help-button {
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  min-width: 48px;
+  min-height: 48px;
+}
+.storefront .experience-footer-end { padding-bottom: 56px; }
+.storefront .local-account-form,
+.storefront .location-details { min-width: 0; overflow-wrap: anywhere; }
+.storefront .product-research-details dd { overflow-wrap: anywhere; }
+@media (max-width: 1050px) {
+  .storefront .store-nav-row { display: flex; min-height: 72px; gap: 16px; }
+  .storefront .local-direct-nav,
+  .storefront .store-nav-products { display: none; }
+  .storefront .store-header-actions { margin-left: auto; }
+  .storefront .store-header-actions .store-menu-toggle { display: inline-flex; }
+  .storefront .store-mobile-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px var(--review-gutter) 24px; gap: 4px 20px; max-height: 65dvh; overflow-y: auto; }
+  .storefront .store-mobile-menu a,
+  .storefront .store-mobile-menu button { min-height: 48px; text-align: left; padding: 12px 6px; font-size: 15px; }
+  .storefront .experience-card { padding: 22px 18px; }
+  .storefront .experience-card h3 { font-size: 20px; }
+}
+@media (min-width: 701px) and (max-width: 1050px) {
+  .storefront .store-hero h1 { font-size: clamp(36px, 4.5vw, 48px); }
+  .storefront .store-hero-inner { gap: 24px; min-height: 460px; }
+  .storefront .store-hero-image { height: 340px; }
+  .storefront .store-hero-image > img { max-width: 100%; }
+  .storefront .store-hero-range { margin-left: 12px; }
+}
+@media (max-width: 700px) {
+  .storefront input:not([type=checkbox]),
+  .storefront select,
+  .storefront textarea,
+  .storefront .store-filters .online-input { font-size: 16px; }
+  .storefront .store-hero-inner { grid-template-columns: 1fr; padding: 30px 0 12px; gap: 20px; min-height: 0; }
+  .storefront .store-hero-copy { text-align: center; padding: 0; }
+  .storefront .store-hero-brandline { justify-content: center; }
+  .storefront .store-hero h1 { font-size: clamp(32px, 7vw, 44px); }
+  .storefront .store-hero-description { margin-inline: auto; }
+  .storefront .store-hero-image { height: clamp(250px, 60vw, 340px); }
+  .storefront .store-hero-image > img { max-width: 100%; }
+  .storefront .store-shortcuts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 10px; }
+  .storefront .store-shortcuts > button { gap: 8px; }
+  .storefront .store-shortcuts small { display: none; }
+  .storefront .store-shortcut-image { width: 80px; height: 76px; }
+  .storefront .store-story { padding: 26px 22px 20px; min-height: 350px; }
+  .storefront .store-story h2 { font-size: 28px; }
+  .storefront .store-story > img { height: 180px; }
+  .storefront .store-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+  .storefront .store-filters > * { min-width: 0; width: 100%; }
+  .storefront .store-filter-search,
+  .storefront .store-stock-filter { grid-column: 1 / -1; }
+  .storefront .store-stock-filter { min-height: 48px; }
+  .storefront .store-stock-filter input { width: 20px; height: 20px; }
+  .storefront .store-section-heading { flex-wrap: wrap; align-items: center; gap: 16px; }
+  .storefront .store-section-heading > button { min-height: 44px; font-size: 13px; }
+  .storefront .experience-newsletter { grid-template-columns: 1fr; gap: 30px; }
+  .storefront .experience-reasons > div { grid-template-columns: 1fr; gap: 28px; }
+  .storefront .experience-footer-links { grid-template-columns: 1fr; gap: 0; }
+  .storefront .experience-footer-links details { padding-block: 12px; border-bottom: 1px solid #414249; }
+  .storefront .experience-footer-end { flex-wrap: wrap; gap: 16px; }
+  /* Shopping help remains in the footer; avoid covering phone content. */
+  .storefront .experience-help-button { display: none; }
+  .storefront .experience-footer-end { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .storefront .store-main.store-page > .grid.items-start { gap: 28px; }
+  .storefront .store-product-image { max-height: 420px; padding: 24px; }
+  .storefront .store-cart-confirmation { gap: 14px; align-items: flex-start; }
+  .storefront .store-cart-confirmation > img { width: 64px; height: 90px; }
+  .storefront .store-cart-confirmation h3 { font-size: 18px; }
+  .storefront .store-cart-confirmation-actions { display: grid; grid-template-columns: 1fr; }
+  .storefront .store-cart-confirmation-actions > * { justify-content: center; width: 100%; }
+}
+@media (max-width: 540px) {
+  .storefront .store-nav-row { gap: 8px; min-height: 68px; }
+  .storefront .store-header-actions > a[aria-label="Customer sign in"],
+  .storefront .store-header-actions > a[aria-label="Your account"] { display: none; }
+  .storefront .store-utility nav a:last-child { display: inline-flex; }
+  .storefront .store-utility nav { gap: 16px; }
+  .storefront .store-logo img { width: 94px; height: auto; }
+  .storefront .experience-card { padding: 20px 14px; }
+  .storefront .experience-card img { height: 170px; margin-bottom: 20px; }
+  .storefront .experience-card h3 { font-size: 18px; }
+  .storefront .experience-card-bottom strong { font-size: 20px; }
+  .storefront .experience-colour { flex-wrap: wrap; gap: 7px; }
+  .storefront .experience-options { gap: 8px; }
+  .storefront .experience-options button { font-size: 12px; }
+  .storefront .experience-card-bottom .honor-button { font-size: 13px; padding: 12px 8px; }
+  .storefront .experience-card-bottom .honor-button svg { display: none; }
+  .storefront .experience-card .experience-description { font-size: 13px; }
+  .storefront .experience-dialog { width: calc(100% - 24px); padding-inline: 20px; }
+  .storefront .experience-dialog header { top: -28px; gap: 8px; }
+  .storefront .experience-dialog header h2 { font-size: 24px; }
+  .storefront .experience-saved { gap: 16px; }
+  .storefront .experience-newsletter form > div { gap: 10px; }
+  .storefront .experience-newsletter button { font-size: 13px; gap: 6px; }
+  .storefront .store-search > div { flex-wrap: wrap; }
+  .storefront .store-search input { flex-basis: 100%; width: 100%; }
+  .storefront .store-search > div > button { width: 100%; justify-content: center; min-height: 48px; }
+  .storefront .local-account-form { padding: 28px 20px; }
+  .storefront .store-steps { gap: 8px; font-size: 11px; }
+  .storefront .store-steps svg { width: 12px; }
+}
+@media (max-width: 379px) {
+  .storefront .store-product-grid { grid-template-columns: minmax(0, 1fr); }
+  .storefront .experience-card { padding: 24px; }
+  .storefront .experience-card img { height: 230px; }
+  .storefront .experience-card h3 { font-size: 22px; }
+  .storefront .experience-card-bottom strong { font-size: 24px; }
+  .storefront .experience-options { flex-direction: column; }
+  .storefront .experience-options button { width: 100%; }
+  .storefront .store-hero .honor-button { padding-inline: 16px; }
+  .storefront .store-hero-range { margin-left: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .storefront .experience-card img { transition: none; }
+  .storefront .experience-card > a:hover img { transform: none; }
+}
