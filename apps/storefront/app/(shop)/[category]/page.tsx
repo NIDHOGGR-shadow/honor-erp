@@ -1,4 +1,4 @@
-import { categoryPage } from "../../lib/categoryPage";
+import { categoryPage } from "../../../lib/categoryPage";
 export const dynamic = "force-dynamic";
 export default async function Page({ params, searchParams }: {
   params: Promise<{ category: string }>;
