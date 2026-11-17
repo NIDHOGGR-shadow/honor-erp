@@ -19,7 +19,7 @@ test("HONOR staff sign-in uses a single login panel, not the rejected promo spli
 
 test("staff sign-in keeps its existing secure actions and is used by the deployed route", () => {
   const workspace = source("../src/online/Workspace.tsx");
-  const page = source("../apps/storefront/app/workspace/page.tsx");
+  const page = source("../apps/storefront/app/(staff)/workspace/page.tsx");
   const layout = source("../apps/storefront/app/globals.css");
   const sharedCss = source("../src/index.css");
 
@@ -27,7 +27,7 @@ test("staff sign-in keeps its existing secure actions and is used by the deploye
   assert.match(workspace, /\/auth\/recovery-password/);
   assert.match(workspace, /\/auth\/activate-invitation/);
   assert.match(workspace, /Staff accounts are invitation-only/);
-  assert.match(page, /import Workspace from "\.\.\/\.\.\/\.\.\/\.\.\/src\/online\/Workspace"/);
+  assert.match(page, /import Workspace from "\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/src\/online\/Workspace"/);
   assert.match(layout, /src\/index\.css/);
   assert.match(sharedCss, /honor-unified-layout\.css/);
 });

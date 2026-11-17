@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Workspace from "../../../../src/online/Workspace";
+import Workspace from "../../../../../src/online/Workspace";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
